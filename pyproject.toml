@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autogigification"
+version = "0.1.0"
+description = "A short description of your project"
+authors = [{ name = "Your Name", email = "your.email@example.com" }]
+dependencies = [
+    "requests",
+    "numpy",
+    "spotipy",
+    "pandas",
+    "click",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+ag = "main:do_it"
