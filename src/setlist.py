@@ -1,8 +1,11 @@
+from dataclasses import dataclass
 import itertools
 import json
+import logging
 import os
 import time
-from typing import Any, Dict, List, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import requests
@@ -21,21 +24,35 @@ SPOTIFY_API_CREDS = {
 
 SPOTIFY_USERNAME = os.environ["SPOTIFY_USERNAME"]
 
-SETLIST_CACHE = os.environ["SETLIST_CACHE"]
-SPOTIFY_TRACK_CACHE = os.environ["SPOTIFY_TRACK_CACHE"]
+SETLIST_CACHE = os.environ.get("SETLIST_CACHE", "setlist_cache.json")
+SPOTIFY_TRACK_CACHE = os.environ.get("SPOTIFY_TRACK_CACHE", "spotify_cache.json")
 
 
-def load_cache(cache_path: str):
+def _resolve_repo_file(cache_file: str) -> Path:
+    # By default we just want to assume we're always using the file in the same directory as the repo.
+    if Path(cache_file).is_absolute():
+        cache_path = Path(cache_file)
+    else:
+        cache_path = Path(__file__).parent.parent / cache_file
+
+    logging.info(f"Using cache file {cache_path}")
+
+    return cache_path
+
+
+def load_cache(cache_name: str) -> Dict[str, Any]:
+    cache_path = _resolve_repo_file(cache_name)
     if os.path.exists(cache_path):
         with open(cache_path, "r") as file:
             return json.load(file)
     return {}
 
 
-def save_cache(cache_path: str, cache: Dict[str, Any]):
+def save_cache(cache_name: str, cache: Dict[str, Any]):
+    cache_path = _resolve_repo_file(cache_name)
     with open(cache_path, "w") as file:
         json.dump(cache, file, indent=4)
-        print(file.name)
+        logging.info(f"Saved cache to {cache_path}")
 
 
 def load_setlist_cache():
@@ -47,11 +64,14 @@ def load_spotify_track_cache():
 
 
 def get_recent_setlists(
-    cache: Dict[str, Any], artist_name: str, api_key=SETLIST_FM_API_KEY
-):
+    cache: Dict[str, Any], artist_name: str, api_key: Optional[str] = SETLIST_FM_API_KEY
+) -> Dict[str, Any]:
     if artist_name in cache:
-        print(f"Using cached setlist for {artist_name}")
+        logging.info(f"Using cached setlist for {artist_name}")
         return cache[artist_name]
+
+    if not api_key:
+        raise Exception("API key not set")
 
     url = (
         f"https://api.setlist.fm/rest/1.0/search/setlists?artistName={artist_name}&p=1"
@@ -66,7 +86,8 @@ def get_recent_setlists(
         save_cache(SETLIST_CACHE, cache)
         return setlists
     else:
-        print(response)
+        logging.error(response)
+        return {}
 
 
 def extract_common_songs(setlists: Dict[str, Any]) -> List[Tuple[str, pd.Timestamp]]:
@@ -116,10 +137,6 @@ def extract_common_songs(setlists: Dict[str, Any]) -> List[Tuple[str, pd.Timesta
     #     ]
     # },
 
-    # Given a list of recent setlist by band, use a smart algorithm to guess what's most likely to be played.
-
-    # Make a dataframe of all setlist information
-
     songs_played_by_date = []
     events = setlists["setlist"]
     for event in events:
@@ -132,11 +149,13 @@ def extract_common_songs(setlists: Dict[str, Any]) -> List[Tuple[str, pd.Timesta
                 song_is_tape = song.get("tape", False)
 
                 if not song_name:
-                    print(f"No song name in set {set_i} on {event_date=} {url=}")
+                    logging.warning(
+                        f"No song name in set {set_i} on {event_date=} {url=}"
+                    )
                     continue
 
                 if song_is_tape:
-                    print(f"{song_name} is a tape, ignoring")
+                    logging.info(f"{song_name} is a tape, ignoring")
                     continue
 
                 songs_played_by_date.append(
@@ -144,7 +163,7 @@ def extract_common_songs(setlists: Dict[str, Any]) -> List[Tuple[str, pd.Timesta
                 )
 
             if not songs:
-                print(f"No songs in set {set_i} on {event_date=} {url=}")
+                logging.warning(f"No songs in set {set_i} on {event_date=} {url=}")
                 continue
 
     return songs_played_by_date
@@ -162,24 +181,56 @@ def make_spotify():
     return sp
 
 
-def create_spotify_playlist(playlist_name: str, songs: Dict[str, List[str]]):
-    sp = make_spotify()
+@dataclass(frozen=True)
+class Playlist:
+    name: str
+    id: str
+    url: str
+
+    @classmethod
+    def from_spotify(cls, playlist: Dict[str, Any]):
+        return cls(
+            name=playlist["name"],
+            id=playlist["id"],
+            url=playlist["external_urls"]["spotify"],
+        )
+
+
+def find_or_create_spotify_playlist(
+    sp: spotipy.Spotify, playlist_name: str
+) -> Playlist:
+    playlists = sp.current_user_playlists()
+
+    if not playlists:
+        logging.warning("No playlists found")
+    else:
+        for playlist in playlists["items"]:
+            if playlist["name"] == playlist_name:
+                return Playlist.from_spotify(playlist)
+
+    logging.info(f"Playlist {playlist_name} not found, will create")
 
     playlist = sp.user_playlist_create(
         user=SPOTIFY_USERNAME, name=playlist_name, public=True
     )
 
     if not playlist:
-        print("Failed to create playlist")
-        return
+        raise Exception("Failed to create playlist")
 
-    mapped_ids = get_spotify_track_ids(songs)
+    return Playlist.from_spotify(playlist)
+
+
+def populate_spotify_playlist(
+    sp: spotipy.Spotify, playlist: Playlist, songs: Dict[str, List[str]]
+) -> None:
+    sp.playlist_replace_items(playlist_id=playlist.id, items=[])
+
+    mapped_ids = get_spotify_track_ids(sp, songs)
     track_ids = [
         spotify_id
         for _, spotify_id in itertools.chain(*mapped_ids.values())
         if spotify_id is not None
     ]
-    # sp.user_playlist_add_tracks(user=username, playlist_id=playlist['id'], tracks=track_ids)
 
     # Function to split list into chunks of n
     def chunks(lst, n):
@@ -188,15 +239,13 @@ def create_spotify_playlist(playlist_name: str, songs: Dict[str, List[str]]):
 
     # Add tracks to the playlist in batches of 100
     for batch in chunks(track_ids, 100):
-        sp.playlist_add_items(playlist_id=playlist["id"], items=batch)
-
-    return playlist["external_urls"]["spotify"]
+        sp.playlist_add_items(playlist_id=playlist.id, items=batch)
 
 
 def get_spotify_track_ids(
+    sp: spotipy.Spotify,
     all_songs: Dict[str, List[str]],
 ) -> Dict[str, List[Tuple[str, str]]]:
-    sp = make_spotify()
     track_ids = {}
     spotify_track_cache = load_cache(SPOTIFY_TRACK_CACHE)
     for band, songs in all_songs.items():
@@ -206,30 +255,50 @@ def get_spotify_track_ids(
             if search_term not in spotify_track_cache:
                 results = sp.search(q=search_term, limit=1, type="track")
                 if not results:
-                    print(f"No results for {search_term}")
+                    logging.warning(f"No results for {search_term}")
                     continue
 
-                print(f'Got {len(results["tracks"]["items"])} tracks for {search_term}')
+                logging.info(
+                    f'Got {len(results["tracks"]["items"])} tracks for {search_term}'
+                )
                 spotify_track_cache[search_term] = results
                 any_writes = True
             else:
-                print(f"Using cache for {search_term}")
+                logging.info(f"Using cache for {search_term}")
                 results = spotify_track_cache[search_term]
 
             if results["tracks"]["items"]:
                 spotify_id = results["tracks"]["items"][0]["id"]
             else:
-                print(f"No spotify track found for {band} - {song}")
+                logging.warning(f"No spotify track found for {band} - {song}")
                 spotify_id = None
 
             track_ids.setdefault(band, [])
             track_ids[band].append((song, spotify_id))
-        print(f"Finished {band}")
+        logging.info(f"Finished {band}")
 
         if any_writes:
             save_cache(SPOTIFY_TRACK_CACHE, spotify_track_cache)
 
     return track_ids
+
+
+def derive_song_features(
+    songs_by_date: List[Tuple[str, pd.Timestamp]], decay_rate: float
+) -> pd.DataFrame:
+    names, dates = zip(*songs_by_date)
+    df = pd.DataFrame({"name": names, "date": dates})
+
+    days_since_played = (pd.Timestamp.now() - df["date"]).dt.days  # type: ignore
+    df["weight"] = decay_rate ** (days_since_played / 30)
+
+    df["position"] = df.groupby("date").cumcount() + 1
+    df["setlist_size"] = df.groupby("date")["name"].transform("count")
+
+    df["is_first"] = df["position"] == 1
+    df["is_last"] = df["position"] == df["setlist_size"]
+
+    return df
 
 
 def extract_last_setlist(
@@ -238,11 +307,11 @@ def extract_last_setlist(
     songs, dates = zip(*songs_by_date)
     song_series = pd.Series(songs, index=dates)
     song_series = song_series.sort_index(ascending=False)
-    last_date: pd.Timestamp = song_series.index[0]
+    last_date: pd.Timestamp = song_series.index[0]  # type: ignore
     last_setlist = song_series.loc[last_date]
 
     if len(last_setlist) < 5:
-        print(f"Less than 5 songs played on {last_date}")
+        logging.info(f"Less than 5 songs played on {last_date}")
 
     return list(last_setlist), last_date
 
@@ -250,17 +319,48 @@ def extract_last_setlist(
 def extract_smart_setlist(
     songs_by_date: List[Tuple[str, pd.Timestamp]], setlist_length: int
 ) -> List[str]:
-    names, dates = zip(*songs_by_date)
-    df = pd.DataFrame({"name": names, "date": dates})
+    # Given a desired setlist length, find the most frequently played songs according to features
+    df = derive_song_features(songs_by_date, decay_rate=0.9)
 
-    # Make weighted song frequencies
-    days_since_played = (pd.Timestamp.now() - df["date"]).dt.days
-    decay_rate = 0.9
-    df["weight"] = decay_rate ** (days_since_played / 30)
+    # Find relative positions of songs in setlist
+    df["normalised_position"] = df["position"] / df["setlist_size"]
 
-    weighted_songs = df.groupby("name")["weight"].sum()
-    weighted_songs = weighted_songs.sort_values(ascending=False)
+    # Create position bins
+    position_bins = [0, 0.2, 0.8, 1]
+    position_labels = ["Start", "Middle", "End"]
+    df["position_bin"] = pd.cut(
+        df["normalised_position"], bins=position_bins, labels=position_labels
+    )
 
-    print(weighted_songs)
+    # Create frequency table of positions scaled by recency
+    weighted_position_freq = (
+        df.groupby(["position_bin", "name"], observed=True)["weight"]
+        .sum()
+        .unstack(fill_value=0)
+    )
 
-    return list(weighted_songs.iloc[:setlist_length].index)
+    all_songs = set()
+    setlist = []
+
+    # Find first and last songs
+    most_likely_first = df.loc[df["is_first"]].groupby("name")["weight"].sum().idxmax()
+    most_likely_last = df.loc[df["is_last"]].groupby("name")["weight"].sum().idxmax()
+
+    all_songs = {most_likely_first, most_likely_last}
+    setlist = [most_likely_first]
+
+    # Fill middle in order according to position bin
+    for i in range(2, setlist_length):
+        current_bin = position_labels[i // setlist_length]
+        remaining_songs_position_freq = weighted_position_freq.loc[
+            current_bin,
+            [song for song in weighted_position_freq.columns if song not in all_songs],
+        ]  # type: ignore
+
+        most_likely_song = remaining_songs_position_freq.idxmax()
+        setlist.append(most_likely_song)
+        all_songs.add(most_likely_song)
+
+    setlist.append(most_likely_last)
+
+    return setlist  # type: ignore

@@ -1,17 +1,24 @@
 from typing import Tuple
-import click
+import logging
 
+import click
 import pandas as pd
 
 from hellfest import get_hellfest_lineup
 from setlist import (
     SETLIST_CACHE,
-    create_spotify_playlist,
     extract_common_songs,
     extract_last_setlist,
     extract_smart_setlist,
+    find_or_create_spotify_playlist,
     get_recent_setlists,
     load_cache,
+    make_spotify,
+    populate_spotify_playlist,
+)
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 
@@ -73,13 +80,15 @@ def do_it(
                     )
 
                 click.echo(f"{band}: {len(songs)} songs")
-                all_songs[band] = list(set(songs))[:max_setlist_length]
+                all_songs[band] = songs
             else:
                 click.echo(f"No setlists found for {band}", err=True)
 
         # Create Spotify playlist
-        playlist_url = create_spotify_playlist(playlist_name, all_songs)
-        click.echo(f"Playlist created: {playlist_url}")
+        sp = make_spotify()
+        playlist = find_or_create_spotify_playlist(sp, playlist_name)
+        populate_spotify_playlist(sp, playlist, all_songs)
+        click.echo(f"Playlist created: {playlist.name} - {playlist.url}")
 
 
 if __name__ == "__main__":
