@@ -205,7 +205,7 @@ def find_or_create_spotify_playlist(
         logging.warning("No playlists found")
     else:
         for playlist in playlists["items"]:
-            if playlist["name"] == playlist_name:
+            if playlist and playlist["name"] == playlist_name:
                 return Playlist.from_spotify(playlist)
 
     logging.info(f"Playlist {playlist_name} not found, will create")
