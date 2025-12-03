@@ -27,7 +27,7 @@ logging.basicConfig(
 @click.option("--playlist-name")
 @click.option(
     "--copy-last-setlist-threshold",
-    default=7,
+    default=15,
     type=int,
     help="Max age of last setlist (in days)",
 )

@@ -6,7 +6,7 @@ import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-
+import unicodedata
 import pandas as pd
 import requests
 import spotipy
@@ -176,6 +176,7 @@ def make_spotify():
             client_secret=SPOTIFY_API_CREDS["client_secret"],
             redirect_uri=SPOTIFY_API_CREDS["redirect_uri"],
             scope="playlist-modify-public",
+            show_dialog=True,
         )
     )
     return sp
@@ -251,27 +252,7 @@ def get_spotify_track_ids(
     for band, songs in all_songs.items():
         any_writes = False
         for song in songs:
-            search_term = f"{song} {band}"
-            if search_term not in spotify_track_cache:
-                results = sp.search(q=search_term, limit=1, type="track")
-                if not results:
-                    logging.warning(f"No results for {search_term}")
-                    continue
-
-                logging.info(
-                    f'Got {len(results["tracks"]["items"])} tracks for {search_term}'
-                )
-                spotify_track_cache[search_term] = results
-                any_writes = True
-            else:
-                logging.info(f"Using cache for {search_term}")
-                results = spotify_track_cache[search_term]
-
-            if results["tracks"]["items"]:
-                spotify_id = results["tracks"]["items"][0]["id"]
-            else:
-                logging.warning(f"No spotify track found for {band} - {song}")
-                spotify_id = None
+            _, spotify_id = get_spotify_track_id(sp, song, band, spotify_track_cache)
 
             track_ids.setdefault(band, [])
             track_ids[band].append((song, spotify_id))
@@ -281,6 +262,92 @@ def get_spotify_track_ids(
             save_cache(SPOTIFY_TRACK_CACHE, spotify_track_cache)
 
     return track_ids
+
+
+def normalize(s: str) -> str:
+    return (
+        unicodedata.normalize("NFKD", s)
+        .encode("ascii", "ignore")
+        .decode("utf-8")
+        .lower()
+    )
+
+
+def search_track_by_query(
+    sp, song: str, band: str, cache: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    query = f"{song} {band}"
+    if query not in cache:
+        results = sp.search(q=query, limit=50, type="track")
+        cache[query] = results
+        save_cache(SPOTIFY_TRACK_CACHE, cache)
+    else:
+        logging.info(f"Using cache for {query}")
+        results = cache[query]
+    return results.get("tracks", {}).get("items", [])
+
+
+def match_track(tracks: List[Dict[str, Any]], song: str, band: str) -> Optional[str]:
+    song_norm = normalize(song)
+    band_norm = normalize(band)
+    for item in tracks:
+        track_name = normalize(item["name"])
+        artist_names = [normalize(artist["name"]) for artist in item["artists"]]
+        if song_norm in track_name and any(band_norm in a for a in artist_names):
+            return item["id"]
+    return None
+
+
+def get_artist_id(sp, band: str) -> Optional[str]:
+    results = sp.search(q=band, type="artist", limit=1)
+    items = results.get("artists", {}).get("items", [])
+    return items[0]["id"] if items else None
+
+
+def search_track_by_discography(sp, artist_id: str, song: str) -> Optional[str]:
+    song_norm = normalize(song)
+    albums = sp.artist_albums(artist_id, album_type="album,single", limit=50)
+    album_ids = {album["id"] for album in albums["items"]}
+    seen_track_ids = set()
+    for album_id in album_ids:
+        tracks = sp.album_tracks(album_id).get("items", [])
+        for track in tracks:
+            if track["id"] in seen_track_ids:
+                continue
+            seen_track_ids.add(track["id"])
+            if song_norm in normalize(track["name"]):
+                return track["id"]
+    return None
+
+
+def get_spotify_track_id(
+    sp,
+    song: str,
+    band: str,
+    spotify_track_cache: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, Optional[str]]:
+    if not spotify_track_cache:
+        spotify_track_cache = {}
+
+    # Try fuzzy search first
+    tracks = search_track_by_query(sp, song, band, spotify_track_cache)
+    track_id = match_track(tracks, song, band)
+    if track_id:
+        return song, track_id
+
+    # Fallback: search via artist discography
+    logging.warning(f"No match in search results for {band} - {song}, trying fallback")
+    artist_id = get_artist_id(sp, band)
+    if not artist_id:
+        logging.warning(f"Artist not found: {band}")
+        return song, None
+
+    track_id = search_track_by_discography(sp, artist_id, song)
+    if track_id:
+        return song, track_id
+
+    logging.warning(f"No match found anywhere for {band} - {song}")
+    return song, None
 
 
 def derive_song_features(
