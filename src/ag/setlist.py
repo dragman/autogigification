@@ -15,6 +15,8 @@ from spotipy.oauth2 import SpotifyOAuth
 from .cache import Cache, create_cache
 from .utils.rate_limit import NullRateLimiter, RateLimiter, retry_after
 
+DEFAULT_SPOTIFY_SCOPES = "playlist-modify-public"
+
 load_dotenv()
 
 SETLIST_FM_API_KEY = os.environ["SETLIST_FM_API_KEY"]
@@ -22,6 +24,7 @@ SPOTIFY_API_CREDS = {
     "client_id": os.environ["SPOTIFY_CLIENT_ID"],
     "client_secret": os.environ["SPOTIFY_CLIENT_SECRET"],
     "redirect_uri": os.environ["SPOTIFY_REDIRECT_URI"],
+    "refresh_token": os.environ["SPOTIFY_REFRESH_TOKEN"],
 }
 
 SPOTIFY_USERNAME = os.environ["SPOTIFY_USERNAME"]
@@ -151,17 +154,32 @@ def extract_common_songs(setlists: Dict[str, Any]) -> List[Tuple[str, pd.Timesta
     return songs_played_by_date
 
 
-def make_spotify():
-    sp = spotipy.Spotify(
-        auth_manager=SpotifyOAuth(
-            client_id=SPOTIFY_API_CREDS["client_id"],
-            client_secret=SPOTIFY_API_CREDS["client_secret"],
-            redirect_uri=SPOTIFY_API_CREDS["redirect_uri"],
-            scope="playlist-modify-public",
-            show_dialog=True,
-        )
-    )
+def make_spotify() -> spotipy.Spotify:
+    auth_manager = create_spotify_auth_manager(show_dialog=False, open_browser=False)
+    auth = create_spotify_auth(auth_manager)
+    sp = spotipy.Spotify(auth=auth)
     return sp
+
+
+def create_spotify_auth_manager(
+    scope: str = DEFAULT_SPOTIFY_SCOPES,
+    show_dialog: bool = True,
+    open_browser: bool = True,
+) -> SpotifyOAuth:
+    """Centralized SpotifyOAuth factory so token flows stay consistent."""
+    return SpotifyOAuth(
+        client_id=SPOTIFY_API_CREDS["client_id"],
+        client_secret=SPOTIFY_API_CREDS["client_secret"],
+        redirect_uri=SPOTIFY_API_CREDS["redirect_uri"],
+        scope=scope,
+        show_dialog=show_dialog,
+        open_browser=open_browser,
+    )
+
+
+def create_spotify_auth(auth_manager: SpotifyOAuth) -> Dict[str, Any]:
+    token_info = auth_manager.refresh_access_token(SPOTIFY_API_CREDS["refresh_token"])
+    return token_info["access_token"]
 
 
 @dataclass(frozen=True)

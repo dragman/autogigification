@@ -24,3 +24,4 @@ where = ["src"]
 
 [project.scripts]
 ag = "main:main"
+spotify-refresh-token = "refresh_token:main"
