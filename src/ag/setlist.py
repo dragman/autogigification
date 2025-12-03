@@ -1,10 +1,9 @@
 import itertools
 import logging
 import os
-from contextlib import nullcontext
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
-import unicodedata
 
 import pandas as pd
 import requests

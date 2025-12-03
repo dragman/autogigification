@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 from ag.setlist import (
     DEFAULT_SPOTIFY_SCOPES,
-    create_spotify_auth,
     create_spotify_auth_manager,
 )
 

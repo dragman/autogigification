@@ -8,10 +8,7 @@ from typing import Any, Dict, Tuple
 
 from dotenv import load_dotenv
 
-from ag.cache import create_cache, create_null_cache
-from ag.impl import create_playlist_from_lineup
-from ag.setlist import SETLIST_CACHE, SPOTIFY_TRACK_CACHE
-from ag.utils.rate_limit import NullRateLimiter, RateLimiter
+from ag.run import run_playlist_job
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -65,21 +62,13 @@ def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
     no_cache = bool(payload.get("no_cache", False))
     rate_limit = float(payload.get("rate_limit", 1.0))
 
-    setlist_cache = create_null_cache() if no_cache else create_cache(SETLIST_CACHE)
-    spotify_cache = create_null_cache() if no_cache else create_cache(SPOTIFY_TRACK_CACHE)
-
-    rate_limiter = (
-        NullRateLimiter() if rate_limit <= 0 else RateLimiter(rate_limit)
-    )
-
-    playlist = create_playlist_from_lineup(
+    playlist = run_playlist_job(
         band_tuple,
         playlist_name,
         copy_last_setlist_threshold,
         max_setlist_length,
-        setlist_cache=setlist_cache,
-        spotify_cache=spotify_cache,
-        rate_limiter=rate_limiter,
+        no_cache=no_cache,
+        rate_limit=rate_limit,
     )
 
     return {"playlist": {"name": playlist.name, "id": playlist.id, "url": playlist.url}}
