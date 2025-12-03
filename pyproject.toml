@@ -23,4 +23,4 @@ dev = ["pytest", "black"]
 where = ["src"]
 
 [project.scripts]
-ag = "main:do_it"
+ag = "main:main"

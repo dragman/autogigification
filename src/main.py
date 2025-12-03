@@ -1,20 +1,14 @@
 from typing import Tuple
 import logging
 
+from ag.impl import create_playlist_from_lineup
+from ag.utils.rate_limit import RateLimiter
 import click
-import pandas as pd
 
-from hellfest import get_hellfest_lineup
-from setlist import (
+from ag.cache import create_cache
+from ag.setlist import (
     SETLIST_CACHE,
-    extract_common_songs,
-    extract_last_setlist,
-    extract_smart_setlist,
-    find_or_create_spotify_playlist,
-    get_recent_setlists,
-    load_cache,
-    make_spotify,
-    populate_spotify_playlist,
+    SPOTIFY_TRACK_CACHE,
 )
 
 logging.basicConfig(
@@ -34,62 +28,47 @@ logging.basicConfig(
 @click.option(
     "--max-setlist-length", default=12, type=int, help="Max number of songs in setlist"
 )
-def do_it(
+@click.option("--no-cache", is_flag=True, default=False, help="Disable cache")
+@click.option(
+    "--rate-limit",
+    type=float,
+    default=1.0,
+    help="Rate limit (in seconds), zero for no limit",
+)
+def main(
     band_names: Tuple[str, ...],
     playlist_name: str,
     copy_last_setlist_threshold: int,
     max_setlist_length: int,
+    no_cache: bool,
+    rate_limit: float,
 ):
     """Create a Spotify playlist based on the Hellfest lineup."""
 
     if not band_names:
         raise click.UsageError("Please provide at least one band name.")
 
-    setlist_cache = load_cache(SETLIST_CACHE)
+    if no_cache:
+        setlist_cache = None
+        spotify_cache = None
+    else:
+        setlist_cache = create_cache(SETLIST_CACHE)
+        spotify_cache = create_cache(SPOTIFY_TRACK_CACHE)
 
-    all_songs = {}
+    rate_limiter = RateLimiter(rate_limit) if rate_limit > 0.0 else None
 
-    for band_name in band_names:
-        # Hellfest data
-        if band_name.lower() == "hellfest":
-            lineup = get_hellfest_lineup()
-            if not lineup:
-                raise click.UsageError("Failed to get Hellfest lineup.")
-        else:
-            lineup = [band_name]
+    playlist = create_playlist_from_lineup(
+        band_names,
+        playlist_name,
+        copy_last_setlist_threshold,
+        max_setlist_length,
+        setlist_cache=setlist_cache,
+        spotify_cache=spotify_cache,
+        rate_limiter=rate_limiter,
+    )
 
-        click.echo(f"Bands in lineup: {', '.join(lineup)}")
-        # Fetch and aggregate songs from Setlist.fm
-        for band in lineup:
-            setlists = get_recent_setlists(setlist_cache, band)
-
-            if setlists:
-                songs_by_date = extract_common_songs(setlists)
-
-                songs, last_date = extract_last_setlist(songs_by_date)
-                last_setlist_age = (pd.Timestamp.now() - last_date).days
-
-                if last_setlist_age > copy_last_setlist_threshold:
-                    click.echo(
-                        f"{band}: Last setlist {last_date} is {last_setlist_age} days old. Smart setlist will be used."
-                    )
-                    songs = extract_smart_setlist(songs_by_date, max_setlist_length)
-                else:
-                    click.echo(
-                        f"{band}: Last setlist {last_date} is fresh. Using last setlist."
-                    )
-
-                click.echo(f"{band}: {len(songs)} songs")
-                all_songs[band] = songs
-            else:
-                click.echo(f"No setlists found for {band}", err=True)
-
-        # Create Spotify playlist
-        sp = make_spotify()
-        playlist = find_or_create_spotify_playlist(sp, playlist_name)
-        populate_spotify_playlist(sp, playlist, all_songs)
-        click.echo(f"Playlist created: {playlist.name} - {playlist.url}")
+    logging.info("Playlist created: %s", playlist)
 
 
 if __name__ == "__main__":
-    do_it()
+    main()

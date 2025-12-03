@@ -1,17 +1,19 @@
-from dataclasses import dataclass
 import itertools
-import json
 import logging
 import os
-import time
-from pathlib import Path
+from contextlib import nullcontext
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 import unicodedata
+
 import pandas as pd
 import requests
 import spotipy
 from dotenv import load_dotenv
 from spotipy.oauth2 import SpotifyOAuth
+
+from .cache import Cache, create_cache
+from .utils.rate_limit import NullRateLimiter, RateLimiter, retry_after
 
 load_dotenv()
 
@@ -28,47 +30,17 @@ SETLIST_CACHE = os.environ.get("SETLIST_CACHE", "setlist_cache.json")
 SPOTIFY_TRACK_CACHE = os.environ.get("SPOTIFY_TRACK_CACHE", "spotify_cache.json")
 
 
-def _resolve_repo_file(cache_file: str) -> Path:
-    # By default we just want to assume we're always using the file in the same directory as the repo.
-    if Path(cache_file).is_absolute():
-        cache_path = Path(cache_file)
-    else:
-        cache_path = Path(__file__).parent.parent / cache_file
-
-    logging.info(f"Using cache file {cache_path}")
-
-    return cache_path
-
-
-def load_cache(cache_name: str) -> Dict[str, Any]:
-    cache_path = _resolve_repo_file(cache_name)
-    if os.path.exists(cache_path):
-        with open(cache_path, "r") as file:
-            return json.load(file)
-    return {}
-
-
-def save_cache(cache_name: str, cache: Dict[str, Any]):
-    cache_path = _resolve_repo_file(cache_name)
-    with open(cache_path, "w") as file:
-        json.dump(cache, file, indent=4)
-        logging.info(f"Saved cache to {cache_path}")
-
-
-def load_setlist_cache():
-    return load_cache(SETLIST_CACHE)
-
-
-def load_spotify_track_cache():
-    return load_cache(SPOTIFY_TRACK_CACHE)
-
-
 def get_recent_setlists(
-    cache: Dict[str, Any], artist_name: str, api_key: Optional[str] = SETLIST_FM_API_KEY
+    cache: Cache,
+    artist_name: str,
+    api_key: Optional[str] = SETLIST_FM_API_KEY,
+    rate_limiter: Optional[RateLimiter] = None,
 ) -> Dict[str, Any]:
-    if artist_name in cache:
+    limiter = rate_limiter or NullRateLimiter()
+    cached_setlists = cache.get(artist_name)
+    if cached_setlists is not None:
         logging.info(f"Using cached setlist for {artist_name}")
-        return cache[artist_name]
+        return cached_setlists
 
     if not api_key:
         raise Exception("API key not set")
@@ -78,16 +50,26 @@ def get_recent_setlists(
     )
     headers = {"x-api-key": api_key, "Accept": "application/json"}
 
-    time.sleep(1)
-    response = requests.get(url, headers=headers)
+    with limiter:
+        response = requests.get(url, headers=headers)
+
+    if response.status_code == 429:
+        retry_after_seconds = int(response.headers.get("Retry-After", "2"))
+        logging.warning(
+            "Rate limited fetching setlists for %s. Retrying in %s seconds.",
+            artist_name,
+            retry_after_seconds,
+        )
+        with retry_after(retry_after_seconds, limiter):
+            response = requests.get(url, headers=headers)
+
     if response.status_code == 200:
         setlists = response.json()
-        cache[artist_name] = setlists
-        save_cache(SETLIST_CACHE, cache)
+        cache.set(artist_name, setlists)
         return setlists
-    else:
-        logging.error(response)
-        return {}
+
+    logging.error(response)
+    return {}
 
 
 def extract_common_songs(setlists: Dict[str, Any]) -> List[Tuple[str, pd.Timestamp]]:
@@ -222,11 +204,14 @@ def find_or_create_spotify_playlist(
 
 
 def populate_spotify_playlist(
-    sp: spotipy.Spotify, playlist: Playlist, songs: Dict[str, List[str]]
+    sp: spotipy.Spotify,
+    playlist: Playlist,
+    songs: Dict[str, List[str]],
+    track_cache: Optional[Cache] = None,
 ) -> None:
     sp.playlist_replace_items(playlist_id=playlist.id, items=[])
 
-    mapped_ids = get_spotify_track_ids(sp, songs)
+    mapped_ids = get_spotify_track_ids(sp, songs, cache=track_cache)
     track_ids = [
         spotify_id
         for _, spotify_id in itertools.chain(*mapped_ids.values())
@@ -246,20 +231,17 @@ def populate_spotify_playlist(
 def get_spotify_track_ids(
     sp: spotipy.Spotify,
     all_songs: Dict[str, List[str]],
+    cache: Optional[Cache] = None,
 ) -> Dict[str, List[Tuple[str, str]]]:
+    track_cache = cache or create_cache(SPOTIFY_TRACK_CACHE)
     track_ids = {}
-    spotify_track_cache = load_cache(SPOTIFY_TRACK_CACHE)
     for band, songs in all_songs.items():
-        any_writes = False
         for song in songs:
-            _, spotify_id = get_spotify_track_id(sp, song, band, spotify_track_cache)
+            _, spotify_id = get_spotify_track_id(sp, song, band, track_cache)
 
             track_ids.setdefault(band, [])
             track_ids[band].append((song, spotify_id))
         logging.info(f"Finished {band}")
-
-        if any_writes:
-            save_cache(SPOTIFY_TRACK_CACHE, spotify_track_cache)
 
     return track_ids
 
@@ -274,16 +256,16 @@ def normalize(s: str) -> str:
 
 
 def search_track_by_query(
-    sp, song: str, band: str, cache: Dict[str, Any]
+    sp, song: str, band: str, cache: Cache
 ) -> List[Dict[str, Any]]:
     query = f"{song} {band}"
-    if query not in cache:
+    cached_results = cache.get(query)
+    if cached_results is None:
         results = sp.search(q=query, limit=50, type="track")
-        cache[query] = results
-        save_cache(SPOTIFY_TRACK_CACHE, cache)
+        cache.set(query, results)
     else:
         logging.info(f"Using cache for {query}")
-        results = cache[query]
+        results = cached_results
     return results.get("tracks", {}).get("items", [])
 
 
@@ -324,10 +306,10 @@ def get_spotify_track_id(
     sp,
     song: str,
     band: str,
-    spotify_track_cache: Optional[Dict[str, Any]] = None,
+    spotify_track_cache: Optional[Cache] = None,
 ) -> Tuple[str, Optional[str]]:
     if not spotify_track_cache:
-        spotify_track_cache = {}
+        spotify_track_cache = create_cache(SPOTIFY_TRACK_CACHE)
 
     # Try fuzzy search first
     tracks = search_track_by_query(sp, song, band, spotify_track_cache)
