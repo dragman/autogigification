@@ -236,6 +236,49 @@
     .response-link a:hover { transform: translateY(-1px); }
     .response-link a:active { transform: translateY(0); }
 
+    .guard {
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 16, 33, 0.9);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 24px;
+    }
+
+    .guard-card {
+      max-width: 400px;
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .guard .lock {
+      font-size: 36px;
+      margin-bottom: 8px;
+    }
+
+    .guard h2 {
+      margin: 0 0 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .guard p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
     details.advanced {
       grid-column: span 2;
       border: 1px solid var(--border);
@@ -269,6 +312,15 @@
   </style>
 </head>
 <body>
+  <div id="access-guard" class="guard hidden">
+    <div class="guard-card">
+      <div class="lock">🔒</div>
+      <h2>Access denied</h2>
+      <p>Provide a bearer token via link query (e.g., <code>?token=...</code>) or paste it in advanced settings to continue.</p>
+      <button type="button" id="guard-cta" class="secondary">I have a token</button>
+    </div>
+  </div>
+
   <header>
     <div class="badge">Setlist.fm -> Spotify</div>
     <div>
@@ -374,6 +426,9 @@
     const endpointInput = document.getElementById('endpoint');
     const fillExampleButton = document.getElementById('fill-example');
     const localModeInput = document.getElementById('local_mode');
+    const accessGuard = document.getElementById('access-guard');
+    const guardCta = document.getElementById('guard-cta');
+    const advancedDetails = document.querySelector('details.advanced');
     const TOKEN_STORAGE_KEY = 'ag_bearer_token';
     const LOCAL_INVOKE_URL = 'http://127.0.0.1:8787/2015-03-31/functions/function/invocations';
     let savedEndpointValue = endpointInput.value;
@@ -406,6 +461,10 @@
         responseLink.textContent = '';
       }
     };
+
+    const showGuard = () => accessGuard.classList.remove('hidden');
+    const hideGuard = () => accessGuard.classList.add('hidden');
+    const hasToken = () => Boolean(tokenInput.value.trim());
 
     const buildRequest = (endpoint, payload, authHeader) => {
       const autoDetectLocal = endpoint.includes('/2015-03-31/functions/function/invocations');
@@ -443,6 +502,12 @@
         setStatus('Local mode off');
       }
     });
+    guardCta.addEventListener('click', () => {
+      advancedDetails.open = true;
+      hideGuard();
+      tokenInput.focus();
+      setStatus('Paste your bearer token in Advanced options');
+    });
 
     const applyTokenFromQuery = () => {
       const url = new URL(window.location.href);
@@ -462,12 +527,20 @@
       } else if (storedToken) {
         tokenInput.value = storedToken;
       }
+      if (hasToken()) {
+        hideGuard();
+      } else {
+        showGuard();
+      }
     };
 
     tokenInput.addEventListener('input', () => {
       const token = tokenInput.value.trim();
       if (token) {
         localStorage.setItem(TOKEN_STORAGE_KEY, token);
+        hideGuard();
+      } else {
+        showGuard();
       }
     });
 

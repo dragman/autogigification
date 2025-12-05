@@ -50,6 +50,11 @@ run: build
 	echo "Starting local CORS proxy..."; \
 	PYTHONPATH=. python scripts/local_cors_proxy.py > /tmp/ag_cors_proxy.log 2>&1 & \
 	PROXY_PID=$$!; \
-	trap "kill $$PROXY_PID >/dev/null 2>&1 || true" EXIT INT TERM; \
+	echo "Starting static frontend server..."; \
+	python -m http.server 8000 --directory static > /tmp/ag_frontend.log 2>&1 & \
+	FRONTEND_PID=$$!; \
+	trap "kill $$PROXY_PID $$FRONTEND_PID >/dev/null 2>&1 || true" EXIT INT TERM; \
 	echo "Proxy PID $$PROXY_PID (logs at /tmp/ag_cors_proxy.log)"; \
-	docker run --env-file .env -p 9000:8080 ${ECR_REPO}
+	echo "Frontend server PID $$FRONTEND_PID (logs at /tmp/ag_frontend.log)"; \
+	echo "Open http://127.0.0.1:8000/ in your browser."; \
+	docker run --env-file .env -e ENABLE_CORS=1 -p 9000:8080 ${ECR_REPO}

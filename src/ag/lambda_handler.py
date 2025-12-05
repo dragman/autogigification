@@ -16,6 +16,8 @@ logger.setLevel(logging.INFO)
 # Load environment variables (client IDs, secrets, etc.) when running outside AWS config.
 load_dotenv()
 
+ENABLE_CORS = os.environ.get("ENABLE_CORS", "").lower() in {"1", "true", "yes"}
+
 # Comma-separated list of allowed tokens
 # e.g. APP_TOKENS="dmoney_token_...,bro_token_..."
 APP_TOKENS = os.environ.get("APP_TOKENS", "")
@@ -24,14 +26,19 @@ VALID_TOKENS = {t.strip() for t in APP_TOKENS.split(",") if t.strip()}
 
 
 def _response(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    headers = {"Content-Type": "application/json"}
+    if ENABLE_CORS:
+        headers.update(
+            {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,Authorization",
+                "Access-Control-Allow-Methods": "OPTIONS,POST",
+            }
+        )
+
     return {
         "statusCode": status,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,Authorization",
-            "Access-Control-Allow-Methods": "OPTIONS,POST",
-        },
+        "headers": headers,
         "body": json.dumps(body),
     }
 
@@ -87,7 +94,7 @@ def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 def lambda_handler(event, context):
     method = _http_method(event)
-    if method == "OPTIONS":
+    if method == "OPTIONS" and ENABLE_CORS:
         return _response(200, {"ok": True})
 
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
