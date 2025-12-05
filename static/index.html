@@ -307,7 +307,10 @@
 
     @media (max-width: 640px) {
       body { padding: 20px; }
+      form { grid-template-columns: 1fr; }
       .grid-span-2 { grid-column: span 1; }
+      .controls { flex-direction: column; align-items: flex-start; }
+      .advanced-content { grid-template-columns: 1fr; }
     }
   </style>
 </head>
