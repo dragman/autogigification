@@ -59,7 +59,7 @@ def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     copy_last_setlist_threshold = int(payload.get("copy_last_setlist_threshold", 15))
     max_setlist_length = int(payload.get("max_setlist_length", 12))
-    no_cache = bool(payload.get("no_cache", False))
+    no_cache = bool(payload.get("no_cache", True))
     rate_limit = float(payload.get("rate_limit", 1.0))
 
     playlist = run_playlist_job(

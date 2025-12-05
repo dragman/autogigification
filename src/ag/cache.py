@@ -43,6 +43,28 @@ class NullCache(Cache):
         return False
 
 
+class MemoryCache(Cache):
+    """In-memory cache that never persists to disk."""
+
+    def __init__(self):
+        self._data: Dict[str, Any] = {}
+
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
+        return self._data.get(key, default)
+
+    def set(self, key: str, value: Any) -> None:
+        self._data[key] = value
+
+    def persist(self) -> None:
+        return None
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._data
+
+    def as_dict(self) -> Dict[str, Any]:
+        return dict(self._data)
+
+
 class FileCache(Cache):
     """JSON file backed cache with immediate persistence."""
 
@@ -89,17 +111,18 @@ class FileCache(Cache):
 def create_cache(cache_target: Optional[Union[str, Path]]) -> Cache:
     """Factory for cache instances.
 
-    Passing None or an empty string will return a NullCache.
+    Passing None or an empty string will return an in-memory cache.
     """
     if cache_target is None:
-        return NullCache()
+        return MemoryCache()
 
     cache_name = str(cache_target).strip().lower()
-    if cache_name in {"", "none", "null"}:
-        return NullCache()
+    if cache_name in {"", "none", "null", "memory"}:
+        return MemoryCache()
 
     return FileCache(cache_target)
 
 
 def create_null_cache() -> Cache:
-    return NullCache()
+    # For legacy callers: return a non-persisted in-memory cache.
+    return MemoryCache()

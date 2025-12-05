@@ -25,6 +25,7 @@ SPOTIFY_API_CREDS = {
     "redirect_uri": os.environ["SPOTIFY_REDIRECT_URI"],
     "refresh_token": os.environ["SPOTIFY_REFRESH_TOKEN"],
 }
+SPOTIFY_TOKEN_CACHE = os.environ.get("SPOTIFY_CACHE_PATH", "/tmp/spotify_token_cache")
 
 SPOTIFY_USERNAME = os.environ["SPOTIFY_USERNAME"]
 
@@ -173,6 +174,7 @@ def create_spotify_auth_manager(
         scope=scope,
         show_dialog=show_dialog,
         open_browser=open_browser,
+        cache_path=SPOTIFY_TOKEN_CACHE,
     )
 
 

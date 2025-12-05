@@ -136,3 +136,4 @@ venv.bak/
 
 # Pyright type checker
 .pyright/
+.DS_Store
