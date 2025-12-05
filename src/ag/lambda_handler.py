@@ -26,7 +26,12 @@ VALID_TOKENS = {t.strip() for t in APP_TOKENS.split(",") if t.strip()}
 def _response(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "statusCode": status,
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+            "Access-Control-Allow-Methods": "OPTIONS,POST",
+        },
         "body": json.dumps(body),
     }
 
@@ -37,6 +42,12 @@ def _unauthorized(message="unauthorized"):
 
 def _bad_request(message="bad_request"):
     return _response(400, {"error": message})
+
+def _http_method(event: Dict[str, Any]) -> str:
+    context = event.get("requestContext") or {}
+    http_info = context.get("http") or {}
+    method = http_info.get("method") or event.get("httpMethod") or ""
+    return method.upper()
 
 
 def _parse_body(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -75,6 +86,10 @@ def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def lambda_handler(event, context):
+    method = _http_method(event)
+    if method == "OPTIONS":
+        return _response(200, {"ok": True})
+
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     auth = headers.get("authorization", "")
 

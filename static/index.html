@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autogigification | Playlist Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Manrope:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b1021;
+      --card: rgba(255, 255, 255, 0.06);
+      --muted: #9ca3af;
+      --accent: #7cf6d2;
+      --accent-2: #a48bff;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e5e7eb;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Space Grotesk', 'Manrope', system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: radial-gradient(900px circle at 25% 20%, rgba(124, 246, 210, 0.12), transparent 45%),
+                  radial-gradient(700px circle at 80% 0%, rgba(164, 139, 255, 0.18), transparent 40%),
+                  linear-gradient(130deg, #0b1021 10%, #0d1228 35%, #0a0d1c 90%);
+      padding: 32px;
+    }
+
+    header {
+      max-width: 900px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .badge {
+      padding: 8px 12px;
+      background: linear-gradient(135deg, rgba(124, 246, 210, 0.15), rgba(164, 139, 255, 0.2));
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #c7d2fe;
+    }
+
+    h1 {
+      margin: 0;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      font-size: clamp(28px, 4vw, 36px);
+    }
+
+    p.lede {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 750px;
+      line-height: 1.5;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .field-title {
+      color: var(--text);
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 15px;
+      transition: border-color 0.2s ease, background 0.2s ease;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: rgba(124, 246, 210, 0.6);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .grid-span-2 {
+      grid-column: span 2;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #0b1021;
+      background: linear-gradient(135deg, #7cf6d2, #81a1ff);
+      box-shadow: 0 12px 30px rgba(124, 246, 210, 0.25);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    .toggles {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .toggles input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: #7cf6d2;
+      cursor: pointer;
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(124, 246, 210, 0.12);
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: auto;
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #c7d2fe;
+    }
+
+    .panel-title {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .panels {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .response-link {
+      margin-top: 12px;
+    }
+
+    .response-link a {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #7cf6d2, #81a1ff);
+      color: #0b1021;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 12px 30px rgba(124, 246, 210, 0.25);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .response-link a:hover { transform: translateY(-1px); }
+    .response-link a:active { transform: translateY(0); }
+
+    details.advanced {
+      grid-column: span 2;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    details.advanced summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+
+    details.advanced[open] summary {
+      margin-bottom: 12px;
+    }
+
+    .advanced-content {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 20px; }
+      .grid-span-2 { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="badge">Setlist.fm -> Spotify</div>
+    <div>
+      <h1>Autogigification Control Room</h1>
+      <p class="lede">
+        Hit your deployed Lambda with the exact payload expected by <code>main_logic</code>. Fill in a lineup, choose playlist rules, and ship the request with a Bearer token.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <form id="playlist-form">
+        <label>
+          <span class="field-title">Playlist name</span>
+          <input type="text" id="playlist_name" name="playlist_name" placeholder="Tour Warmup 2024" required />
+        </label>
+
+        <label class="grid-span-2">
+          <span class="field-title">Band names (comma or new line)</span>
+          <textarea id="band_names" name="band_names" placeholder="Band A, Band B&#10;Artist C"></textarea>
+        </label>
+
+        <details class="advanced">
+          <summary>Advanced options (endpoint, token, caching, limits)</summary>
+          <div class="advanced-content">
+            <label class="grid-span-2">
+              <span class="field-title">Lambda endpoint URL</span>
+              <input type="url" id="endpoint" name="endpoint" value="https://24n2uybzmrhy5gdubam2dvvjby0dtkfh.lambda-url.eu-north-1.on.aws/" required />
+            </label>
+
+            <label>
+              <span class="field-title">Bearer token</span>
+              <input type="text" id="token" name="token" placeholder="my-secret-token" required />
+            </label>
+
+            <div class="toggles">
+              <input type="checkbox" id="no_cache" name="no_cache" checked />
+              <label for="no_cache" style="margin: 0;">Skip caches (send <code>no_cache: true</code>)</label>
+            </div>
+
+            <label>
+              <span class="field-title">Copy last setlist threshold (days)</span>
+              <input type="number" id="copy_last_setlist_threshold" name="copy_last_setlist_threshold" min="1" value="15" />
+            </label>
+
+            <label>
+              <span class="field-title">Max setlist length (songs)</span>
+              <input type="number" id="max_setlist_length" name="max_setlist_length" min="1" value="12" />
+            </label>
+
+            <label>
+              <span class="field-title">Rate limit (seconds, 0 for none)</span>
+              <input type="number" id="rate_limit" name="rate_limit" min="0" step="0.1" value="1" />
+            </label>
+
+            <div class="toggles">
+              <input type="checkbox" id="local_mode" name="local_mode" />
+              <label for="local_mode" style="margin: 0;">Local Lambda mode (wrap request & use local invoke URL)</label>
+            </div>
+          </div>
+        </details>
+
+        <div class="controls grid-span-2">
+          <button type="submit">Send to Lambda</button>
+          <button type="button" class="secondary" id="fill-example">Fill example payload</button>
+          <div class="status-line" id="status-line">
+            <span class="dot" id="status-dot"></span>
+            <span id="status-text">Idle</span>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <section class="panels">
+      <div class="card">
+        <p class="panel-title">Payload preview</p>
+        <pre id="payload-preview">{}</pre>
+      </div>
+      <div class="card">
+        <p class="panel-title">Lambda response</p>
+        <pre id="response-preview">Waiting for a request...</pre>
+        <div id="response-link" class="response-link"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('playlist-form');
+    const payloadPreview = document.getElementById('payload-preview');
+    const responsePreview = document.getElementById('response-preview');
+    const responseLink = document.getElementById('response-link');
+    const statusText = document.getElementById('status-text');
+    const statusDot = document.getElementById('status-dot');
+
+    const bandsInput = document.getElementById('band_names');
+    const playlistInput = document.getElementById('playlist_name');
+    const copyThresholdInput = document.getElementById('copy_last_setlist_threshold');
+    const maxLengthInput = document.getElementById('max_setlist_length');
+    const noCacheInput = document.getElementById('no_cache');
+    const rateLimitInput = document.getElementById('rate_limit');
+    const tokenInput = document.getElementById('token');
+    const endpointInput = document.getElementById('endpoint');
+    const fillExampleButton = document.getElementById('fill-example');
+    const localModeInput = document.getElementById('local_mode');
+    const TOKEN_STORAGE_KEY = 'ag_bearer_token';
+    const LOCAL_INVOKE_URL = 'http://127.0.0.1:8787/2015-03-31/functions/function/invocations';
+    let savedEndpointValue = endpointInput.value;
+
+    const parseBands = (value) => value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
+
+    const buildPayload = () => ({
+      band_names: parseBands(bandsInput.value),
+      playlist_name: playlistInput.value.trim(),
+      copy_last_setlist_threshold: Number(copyThresholdInput.value) || 15,
+      max_setlist_length: Number(maxLengthInput.value) || 12,
+      no_cache: Boolean(noCacheInput.checked),
+      rate_limit: Number(rateLimitInput.value) || 1.0,
+    });
+
+    const updatePreview = () => {
+      payloadPreview.textContent = JSON.stringify(buildPayload(), null, 2);
+    };
+
+    const setStatus = (text, color = 'var(--accent)') => {
+      statusText.textContent = text;
+      statusDot.style.background = color;
+      statusDot.style.boxShadow = `0 0 0 4px ${color === 'var(--accent)' ? 'rgba(124, 246, 210, 0.12)' : 'rgba(255, 124, 124, 0.12)'}`;
+    };
+
+    const updateResponseLink = (maybeUrl) => {
+      if (maybeUrl) {
+        responseLink.innerHTML = `<a href="${maybeUrl}" target="_blank" rel="noopener noreferrer">Open playlist ↗</a>`;
+      } else {
+        responseLink.textContent = '';
+      }
+    };
+
+    const buildRequest = (endpoint, payload, authHeader) => {
+      const autoDetectLocal = endpoint.includes('/2015-03-31/functions/function/invocations');
+      const isLocalInvoke = localModeInput.checked || autoDetectLocal;
+
+      if (isLocalInvoke) {
+        // Local Lambda runtime expects the full event envelope.
+        return {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            headers: authHeader ? { authorization: authHeader } : {},
+            body: JSON.stringify(payload),
+            isBase64Encoded: false,
+          }),
+        };
+      }
+
+      // Deployed Lambda/function URL/API Gateway expects the raw payload and auth header directly.
+      const headers = { 'Content-Type': 'application/json' };
+      if (authHeader) {
+        headers['Authorization'] = authHeader;
+      }
+
+      return { headers, body: JSON.stringify(payload) };
+    };
+
+    form.addEventListener('input', updatePreview);
+    localModeInput.addEventListener('change', () => {
+      if (localModeInput.checked) {
+        savedEndpointValue = endpointInput.value;
+        endpointInput.value = LOCAL_INVOKE_URL;
+        setStatus('Local mode enabled (endpoint overridden and request wrapped)');
+      } else {
+        endpointInput.value = savedEndpointValue || endpointInput.value;
+        setStatus('Local mode off');
+      }
+    });
+
+    const applyTokenFromQuery = () => {
+      const url = new URL(window.location.href);
+      const queryToken = url.searchParams.get('token') || url.searchParams.get('bearer');
+      const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+
+      if (queryToken) {
+        tokenInput.value = queryToken;
+        localStorage.setItem(TOKEN_STORAGE_KEY, queryToken);
+
+        url.searchParams.delete('token');
+        url.searchParams.delete('bearer');
+        const cleanSearch = url.searchParams.toString();
+        const newUrl = cleanSearch ? `${url.pathname}?${cleanSearch}${url.hash}` : `${url.pathname}${url.hash}`;
+        history.replaceState(null, '', newUrl);
+        setStatus('Token captured from link and hidden from URL');
+      } else if (storedToken) {
+        tokenInput.value = storedToken;
+      }
+    };
+
+    tokenInput.addEventListener('input', () => {
+      const token = tokenInput.value.trim();
+      if (token) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      }
+    });
+
+    fillExampleButton.addEventListener('click', () => {
+      bandsInput.value = 'Band A\nBand B\nArtist C';
+      playlistInput.value = 'Rehearsal Mix';
+      copyThresholdInput.value = 10;
+      maxLengthInput.value = 12;
+      rateLimitInput.value = 0.5;
+      noCacheInput.checked = true;
+      updatePreview();
+      setStatus('Example payload loaded');
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = buildPayload();
+      if (!payload.playlist_name || payload.band_names.length === 0) {
+        setStatus('Playlist name and at least one band are required.', 'salmon');
+        return;
+      }
+
+      const endpoint = endpointInput.value.trim();
+      if (!endpoint) {
+        setStatus('Endpoint URL is required.', 'salmon');
+        return;
+      }
+
+      setStatus('Sending request...');
+      responsePreview.textContent = 'Waiting for response...';
+
+      const token = tokenInput.value.trim();
+      const authHeader = token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '';
+      const { headers, body } = buildRequest(endpoint, payload, authHeader);
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers,
+          body,
+        });
+
+        const text = await response.text();
+        let parsedBody;
+        try {
+          parsedBody = text ? JSON.parse(text) : null;
+        } catch (err) {
+          parsedBody = text;
+        }
+
+        let innerBody = parsedBody;
+        if (parsedBody && typeof parsedBody === 'object' && typeof parsedBody.body === 'string') {
+          try {
+            innerBody = JSON.parse(parsedBody.body);
+          } catch (_) {
+            innerBody = parsedBody.body;
+          }
+        }
+
+        const output = {
+          status: response.status,
+          ok: response.ok,
+          body: parsedBody,
+          inner: innerBody,
+        };
+
+        responsePreview.textContent = JSON.stringify(output, null, 2);
+        const linkUrl = innerBody?.playlist?.url || parsedBody?.playlist?.url;
+        updateResponseLink(linkUrl);
+        setStatus(response.ok ? 'Lambda responded successfully' : 'Lambda returned an error', response.ok ? 'var(--accent)' : '#ff7c7c');
+      } catch (error) {
+        responsePreview.textContent = `Request failed: ${error.message}`;
+        updateResponseLink(null);
+        setStatus('Network error', '#ff7c7c');
+      }
+    });
+
+    // Initialize preview on load.
+    updatePreview();
+    applyTokenFromQuery();
+  </script>
+</body>
+</html>

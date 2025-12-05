@@ -14,11 +14,12 @@ ECR_URI := $(ACCOUNT).dkr.ecr.$(REGION).amazonaws.com/$(ECR_REPO)
 .PHONY: help venv deps clean login build tag push
 
 help:
-	@echo "make venv     - create virtualenv"
-	@echo "make deps     - install dependencies into venv"
-	@echo "make clean    - remove build artifacts"
-	@echo "make docker-build - build Lambda container image"
-	@echo "make docker-push  - push image to ECR"
+	@echo "make venv          - create virtualenv"
+	@echo "make deps          - install dependencies into venv"
+	@echo "make clean         - remove build artifacts"
+	@echo "make docker-build  - build Lambda container image (local)"
+	@echo "make docker-push   - push image to ECR (tags latest)"
+	@echo "make run           - run the Lambda image locally on :9000"
 
 $(VENV)/bin/activate:
 	$(PYTHON) -m venv $(VENV)
@@ -45,4 +46,10 @@ push: login tag
 	docker push $(ECR_URI):latest
 
 run: build
+	@set -e; \
+	echo "Starting local CORS proxy..."; \
+	PYTHONPATH=. python scripts/local_cors_proxy.py > /tmp/ag_cors_proxy.log 2>&1 & \
+	PROXY_PID=$$!; \
+	trap "kill $$PROXY_PID >/dev/null 2>&1 || true" EXIT INT TERM; \
+	echo "Proxy PID $$PROXY_PID (logs at /tmp/ag_cors_proxy.log)"; \
 	docker run --env-file .env -p 9000:8080 ${ECR_REPO}
