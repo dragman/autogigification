@@ -41,7 +41,7 @@ class FakeSpotipy:
     def playlist_add_items(self, playlist_id, items):
         self.added_items.extend(items)
 
-    def artist_albums(self, artist_id, album_type, limit):
+    def artist_albums(self, artist_id, album_type=None, limit=None, **kwargs):
         self.album_calls += 1
         return {"items": self.album_list}
 

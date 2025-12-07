@@ -24,9 +24,9 @@ class SpotifyConfig:
 
     client_id: str
     client_secret: str
-    redirect_uri: str
-    username: str
-    refresh_token: str
+    redirect_uri: Optional[str]
+    username: Optional[str]
+    refresh_token: Optional[str]
     scopes: str = "playlist-modify-public"
     token_cache_path: Optional[str] = None
 
@@ -40,7 +40,7 @@ class AppConfig:
     caches: CacheConfig
 
 
-def load_app_config() -> AppConfig:
+def load_app_config(*, require_spotify_user: bool = True) -> AppConfig:
     """Load configuration from environment variables."""
 
     setlist_api_key = os.environ.get("SETLIST_FM_API_KEY")
@@ -53,19 +53,29 @@ def load_app_config() -> AppConfig:
     spotify_username = os.environ.get("SPOTIFY_USERNAME")
     spotify_refresh_token = os.environ.get("SPOTIFY_REFRESH_TOKEN")
 
-    missing = [
+    missing_required = [
         name
         for name, value in {
             "SPOTIFY_CLIENT_ID": spotify_client_id,
             "SPOTIFY_CLIENT_SECRET": spotify_client_secret,
-            "SPOTIFY_REDIRECT_URI": spotify_redirect_uri,
-            "SPOTIFY_USERNAME": spotify_username,
-            "SPOTIFY_REFRESH_TOKEN": spotify_refresh_token,
         }.items()
         if not value
     ]
-    if missing:
-        raise RuntimeError(f"Missing Spotify config: {', '.join(missing)}")
+    if missing_required:
+        raise RuntimeError(f"Missing Spotify config: {', '.join(missing_required)}")
+
+    if require_spotify_user:
+        missing_user = [
+            name
+            for name, value in {
+                "SPOTIFY_REDIRECT_URI": spotify_redirect_uri,
+                "SPOTIFY_USERNAME": spotify_username,
+                "SPOTIFY_REFRESH_TOKEN": spotify_refresh_token,
+            }.items()
+            if not value
+        ]
+        if missing_user:
+            raise RuntimeError(f"Missing Spotify user config: {', '.join(missing_user)}")
 
     caches = CacheConfig(
         setlist_cache=os.environ.get("SETLIST_CACHE", "setlist_cache.json"),

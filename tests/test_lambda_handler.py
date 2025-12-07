@@ -2,6 +2,7 @@ import importlib
 import json
 
 import pytest
+from ag.models import PlaylistBuildResult
 
 
 def load_lambda_handler(monkeypatch, tokens="valid-token"):
@@ -115,3 +116,28 @@ def test_lambda_handler_full_payload_example(monkeypatch):
     assert resp["statusCode"] == 200
     body = json.loads(resp["body"])
     assert body["playlist"]["name"] == "My Lambda Playlist"
+
+
+def test_main_logic_disables_playlist_without_token(monkeypatch):
+    lh = load_lambda_handler(monkeypatch)
+
+    calls = {}
+
+    def fake_run_playlist_job(*args, **kwargs):
+        calls["create_playlist"] = kwargs["create_playlist"]
+        return PlaylistBuildResult(setlists=[], playlist=None, created_playlist=False)
+
+    monkeypatch.setattr(lh, "run_playlist_job", fake_run_playlist_job)
+    monkeypatch.setattr(
+        lh, "playlist_result_to_payload", lambda res: {"created_playlist": False, "setlists": []}
+    )
+    monkeypatch.delenv("SPOTIFY_REFRESH_TOKEN", raising=False)
+    monkeypatch.delenv("SPOTIFY_USERNAME", raising=False)
+    monkeypatch.delenv("SPOTIFY_REDIRECT_URI", raising=False)
+
+    payload = {"band_names": ["Band"], "playlist_name": "Playlist"}
+
+    resp = lh.main_logic(payload)
+
+    assert calls["create_playlist"] is False
+    assert resp["created_playlist"] is False

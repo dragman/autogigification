@@ -8,7 +8,7 @@ from typing import Any, Dict, Tuple
 
 from dotenv import load_dotenv
 
-from ag.run import run_playlist_job
+from ag.run import playlist_result_to_payload, run_playlist_job
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -79,17 +79,41 @@ def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
     max_setlist_length = int(payload.get("max_setlist_length", 12))
     no_cache = bool(payload.get("no_cache", True))
     rate_limit = float(payload.get("rate_limit", 1.0))
+    create_playlist = bool(payload.get("create_playlist", True))
+    force_smart_setlist = payload.get("force_smart_setlist")
+    force_smart = (
+        bool(force_smart_setlist) if force_smart_setlist is not None else None
+    )
+    use_fuzzy_search = bool(payload.get("use_fuzzy_search", False))
 
-    playlist = run_playlist_job(
+    spotify_user_creds_present = all(
+        (
+            os.environ.get("SPOTIFY_REFRESH_TOKEN"),
+            os.environ.get("SPOTIFY_USERNAME"),
+            os.environ.get("SPOTIFY_REDIRECT_URI"),
+        )
+    )
+
+    if create_playlist and not spotify_user_creds_present:
+        logging.info(
+            "Spotify user token missing, switching to preview-only mode for %s",
+            playlist_name,
+        )
+        create_playlist = False
+
+    result = run_playlist_job(
         band_tuple,
         playlist_name,
         copy_last_setlist_threshold,
         max_setlist_length,
         no_cache=no_cache,
         rate_limit=rate_limit,
+        use_fuzzy_search=use_fuzzy_search,
+        create_playlist=create_playlist,
+        force_smart_setlist=force_smart,
     )
 
-    return {"playlist": {"name": playlist.name, "id": playlist.id, "url": playlist.url}}
+    return playlist_result_to_payload(result)
 
 
 def lambda_handler(event, context):

@@ -35,6 +35,14 @@ If there is a setlist in the last 7 days it will just create a playlist matching
 
 If there isn't a recent setlist, it will create a playlist by calculating an exponentially weighted frequency list over the last 20 setlists.  Plus some other features.
 
+### Preview-only mode (no playlist creation)
+
+- Pass `--no-playlist` to the CLI (or `create_playlist: false` in the Lambda payload) to get a JSON response with the setlists that were found/estimated and the Spotify track links so you can build playlists yourself.
+- Missing songs are flagged with `status: "not_found"` and are also listed under `missing_songs` per band.
+- Each band includes `setlist_type` (`fresh` vs `estimated`) and the date/age of the source setlist so you can visually indicate freshness.
+- If a Spotify user token is not configured the CLI/Lambda automatically falls back to this preview mode; a token is only needed for actual playlist creation.
+- Force estimation even when a fresh setlist exists with `--force-smart-setlist` (CLI) or `"force_smart_setlist": true` in the Lambda payload.
+
 ## Development
 
 - Install deps: `make deps` (uses `.venv`).

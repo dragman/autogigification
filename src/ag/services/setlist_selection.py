@@ -6,6 +6,9 @@ from typing import List, Tuple
 def derive_song_features(
     songs_by_date: List[Tuple[str, pd.Timestamp]], decay_rate: float
 ) -> pd.DataFrame:
+    if not songs_by_date:
+        return pd.DataFrame()
+
     names, dates = zip(*songs_by_date)
     df = pd.DataFrame({"name": names, "date": dates})
 
@@ -73,6 +76,9 @@ def extract_smart_setlist(
     songs_by_date: List[Tuple[str, pd.Timestamp]], setlist_length: int
 ) -> List[str]:
     df = derive_song_features(songs_by_date, decay_rate=0.9)
+    if df.empty:
+        logging.warning("No song data available to build smart setlist")
+        return []
 
     df["normalised_position"] = df["position"] / df["setlist_size"]
 
@@ -88,27 +94,52 @@ def extract_smart_setlist(
         .unstack(fill_value=0)
     )
 
-    all_songs = set()
-    setlist = []
+    overall_weight = df.groupby("name")["weight"].sum().sort_values(ascending=False)
 
-    most_likely_first = df.loc[df["is_first"]].groupby("name")["weight"].sum().idxmax()
-    most_likely_last = df.loc[df["is_last"]].groupby("name")["weight"].sum().idxmax()
+    def _first_available(weights: pd.Series, exclude: set) -> str:
+        for name in weights.index:
+            if name not in exclude:
+                return name
+        return weights.index[0]
+
+    first_candidates = df.loc[df["is_first"]].groupby("name")["weight"].sum()
+    most_likely_first = (
+        first_candidates.idxmax()
+        if not first_candidates.empty
+        else _first_available(overall_weight, set())
+    )
+
+    last_candidates = df.loc[df["is_last"]].groupby("name")["weight"].sum()
+    most_likely_last = (
+        last_candidates.idxmax()
+        if not last_candidates.empty
+        else _first_available(overall_weight, {most_likely_first})
+    )
 
     all_songs = {most_likely_first, most_likely_last}
     setlist = [most_likely_first]
 
     for i in range(2, setlist_length):
-        current_bin = position_labels[i // setlist_length]
-        remaining_songs_position_freq = weighted_position_freq.loc[
-            current_bin,
-            [song for song in weighted_position_freq.columns if song not in all_songs],
-        ]  # type: ignore
+        remaining = [song for song in overall_weight.index if song not in all_songs]
+        if not remaining:
+            break
 
-        most_likely_song = remaining_songs_position_freq.idxmax()
+        current_bin = position_labels[i // setlist_length]
+        if current_bin in weighted_position_freq.index:
+            remaining_weights = (
+                weighted_position_freq.loc[current_bin].reindex(remaining, fill_value=0)
+            )
+            most_likely_song = remaining_weights.idxmax()
+        else:
+            logging.info("Position bin %s missing, falling back to overall weights", current_bin)
+            most_likely_song = remaining[0]
+
         setlist.append(most_likely_song)
         all_songs.add(most_likely_song)
 
-    setlist.append(most_likely_last)
+    if most_likely_last not in all_songs:
+        setlist.append(most_likely_last)
+
     return setlist  # type: ignore
 
 

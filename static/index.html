@@ -9,11 +9,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Manrope:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0b1021;
+      --bg: #0b0b0b;
       --card: rgba(255, 255, 255, 0.06);
       --muted: #9ca3af;
-      --accent: #7cf6d2;
-      --accent-2: #a48bff;
+      --accent: #1db954;
+      --accent-2: #0f7a32;
       --border: rgba(255, 255, 255, 0.08);
       --text: #e5e7eb;
       --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
@@ -26,9 +26,10 @@
       min-height: 100vh;
       font-family: 'Space Grotesk', 'Manrope', system-ui, -apple-system, sans-serif;
       color: var(--text);
-      background: radial-gradient(900px circle at 25% 20%, rgba(124, 246, 210, 0.12), transparent 45%),
-                  radial-gradient(700px circle at 80% 0%, rgba(164, 139, 255, 0.18), transparent 40%),
-                  linear-gradient(130deg, #0b1021 10%, #0d1228 35%, #0a0d1c 90%);
+      background:
+        radial-gradient(900px circle at 25% 20%, rgba(29, 185, 84, 0.12), transparent 45%),
+        radial-gradient(700px circle at 80% 0%, rgba(15, 122, 50, 0.25), transparent 40%),
+        linear-gradient(130deg, #0b0b0b 10%, #0f1113 35%, #080808 90%);
       padding: 32px;
     }
 
@@ -68,7 +69,8 @@
     main {
       max-width: 1100px;
       margin: 0 auto;
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 18px;
     }
 
@@ -140,9 +142,9 @@
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
-      color: #0b1021;
-      background: linear-gradient(135deg, #7cf6d2, #81a1ff);
-      box-shadow: 0 12px 30px rgba(124, 246, 210, 0.25);
+      color: #0b0b0b;
+      background: linear-gradient(135deg, #1db954, #1aa34a);
+      box-shadow: 0 12px 30px rgba(29, 185, 84, 0.25);
       transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
@@ -155,6 +157,14 @@
 
     button:hover { transform: translateY(-1px); }
     button:active { transform: translateY(0); }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      background: var(--border);
+      color: var(--muted);
+      box-shadow: none;
+      transform: none;
+    }
 
     .toggles {
       display: flex;
@@ -210,8 +220,12 @@
 
     .panels {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: 1fr;
       gap: 14px;
+    }
+
+    @media (min-width: 960px) {
+      .panels { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
     }
 
     .response-link {
@@ -224,8 +238,8 @@
       gap: 8px;
       padding: 12px 16px;
       border-radius: 12px;
-      background: linear-gradient(135deg, #7cf6d2, #81a1ff);
-      color: #0b1021;
+      background: linear-gradient(135deg, #1db954, #1aa34a);
+      color: #0b0b0b;
       font-weight: 700;
       text-decoration: none;
       box-shadow: 0 12px 30px rgba(124, 246, 210, 0.25);
@@ -234,6 +248,75 @@
 
     .response-link a:hover { transform: translateY(-1px); }
     .response-link a:active { transform: translateY(0); }
+
+    .setlist-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .setlist-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .setlist-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .setlist-header h4 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: -0.01em;
+    }
+
+    .tag {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border: 1px solid var(--border);
+    }
+
+    .tag.fresh { background: rgba(29, 185, 84, 0.14); color: #1db954; }
+    .tag.estimated { background: rgba(255, 193, 112, 0.12); color: #ffc170; }
+
+    .song-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+      font-size: 14px;
+    }
+
+    .song-row:last-child { border-bottom: none; }
+
+    .song-row .missing {
+      color: #ff9f9f;
+      font-weight: 600;
+    }
+
+    .song-row a {
+      color: #1db954;
+      text-decoration: none;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
 
     .guard {
       position: fixed;
@@ -279,7 +362,6 @@
     }
 
     details.advanced {
-      grid-column: span 2;
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 12px 14px;
@@ -356,13 +438,28 @@
             </label>
 
             <label>
-              <span class="field-title">Bearer token</span>
-              <input type="text" id="token" name="token" placeholder="my-secret-token" required />
+              <span class="field-title">Bearer token (only for playlist creation)</span>
+              <input type="text" id="token" name="token" placeholder="my-secret-token" />
             </label>
 
             <div class="toggles">
               <input type="checkbox" id="no_cache" name="no_cache" checked />
               <label for="no_cache" style="margin: 0;">Skip caches (send <code>no_cache: true</code>)</label>
+            </div>
+
+            <div class="toggles">
+              <input type="checkbox" id="create_playlist" name="create_playlist" />
+              <label for="create_playlist" style="margin: 0;">Create Spotify playlist (requires token)</label>
+            </div>
+
+            <div class="toggles">
+              <input type="checkbox" id="force_smart_setlist" name="force_smart_setlist" />
+              <label for="force_smart_setlist" style="margin: 0;">Force setlist estimation (even if fresh)</label>
+            </div>
+
+            <div class="toggles">
+              <input type="checkbox" id="use_fuzzy_search" name="use_fuzzy_search" />
+              <label for="use_fuzzy_search" style="margin: 0;">Fuzzy track name matching</label>
             </div>
 
             <label>
@@ -388,7 +485,7 @@
         </details>
 
         <div class="controls grid-span-2">
-          <button type="submit">Build Spotify Playlist</button>
+          <button type="submit" id="submit-btn">Build Spotify Playlist</button>
           <div class="status-line" id="status-line">
             <span class="dot" id="status-dot"></span>
             <span id="status-text">Idle</span>
@@ -397,17 +494,25 @@
       </form>
     </section>
 
-    <section class="panels">
-      <div class="card">
-        <p class="panel-title">Payload preview</p>
-        <pre id="payload-preview">{}</pre>
-      </div>
-      <div class="card">
-        <p class="panel-title">Lambda response</p>
-        <pre id="response-preview">Waiting for a request...</pre>
-        <div id="response-link" class="response-link"></div>
-      </div>
+    <section class="card">
+      <p class="panel-title">Results</p>
+      <div id="setlist-summary" class="setlist-grid"></div>
+      <div id="response-link" class="response-link"></div>
     </section>
+
+    <details class="advanced">
+      <summary>Debug details (payload + raw response)</summary>
+      <div class="advanced-content">
+        <div class="card">
+          <p class="panel-title">Payload preview</p>
+          <pre id="payload-preview">{}</pre>
+        </div>
+        <div class="card">
+          <p class="panel-title">Lambda response</p>
+          <pre id="response-preview">Waiting for a request...</pre>
+        </div>
+      </div>
+    </details>
   </main>
 
   <script>
@@ -415,14 +520,19 @@
     const payloadPreview = document.getElementById('payload-preview');
     const responsePreview = document.getElementById('response-preview');
     const responseLink = document.getElementById('response-link');
+    const setlistSummary = document.getElementById('setlist-summary');
     const statusText = document.getElementById('status-text');
     const statusDot = document.getElementById('status-dot');
+    const submitButton = document.getElementById('submit-btn');
 
     const bandsInput = document.getElementById('band_names');
     const playlistInput = document.getElementById('playlist_name');
     const copyThresholdInput = document.getElementById('copy_last_setlist_threshold');
     const maxLengthInput = document.getElementById('max_setlist_length');
     const noCacheInput = document.getElementById('no_cache');
+    const createPlaylistInput = document.getElementById('create_playlist');
+    const forceSmartInput = document.getElementById('force_smart_setlist');
+    const fuzzyInput = document.getElementById('use_fuzzy_search');
     const rateLimitInput = document.getElementById('rate_limit');
     const tokenInput = document.getElementById('token');
     const endpointInput = document.getElementById('endpoint');
@@ -444,10 +554,19 @@
       max_setlist_length: Number(maxLengthInput.value) || 12,
       no_cache: Boolean(noCacheInput.checked),
       rate_limit: Number(rateLimitInput.value) || 1.0,
+      create_playlist: Boolean(createPlaylistInput.checked),
+      force_smart_setlist: Boolean(forceSmartInput.checked),
+      use_fuzzy_search: Boolean(fuzzyInput.checked),
     });
 
     const updatePreview = () => {
       payloadPreview.textContent = JSON.stringify(buildPayload(), null, 2);
+    };
+
+    const updateSubmitLabel = () => {
+      submitButton.textContent = createPlaylistInput.checked
+        ? 'Create Spotify Playlist'
+        : 'Preview setlists + links';
     };
 
     const setStatus = (text, color = 'var(--accent)') => {
@@ -456,17 +575,65 @@
       statusDot.style.boxShadow = `0 0 0 4px ${color === 'var(--accent)' ? 'rgba(124, 246, 210, 0.12)' : 'rgba(255, 124, 124, 0.12)'}`;
     };
 
-    const updateResponseLink = (maybeUrl) => {
-      if (maybeUrl) {
+    const updateResponseLink = (maybeUrl, created) => {
+      if (created && maybeUrl) {
         responseLink.innerHTML = `<a href="${maybeUrl}" target="_blank" rel="noopener noreferrer">Open playlist ↗</a>`;
+      } else if (!created) {
+        responseLink.innerHTML = '<div class="chip-row"><span class="tag estimated">Preview mode</span><span>No playlist created (follow links below)</span></div>';
       } else {
         responseLink.textContent = '';
       }
     };
 
+    const renderSetlistSummary = (inner) => {
+      const setlists = inner?.setlists || [];
+      if (!Array.isArray(setlists) || setlists.length === 0) {
+        return '';
+      }
+
+      return `<div class="setlist-grid">
+        ${setlists.map((setlist) => {
+          const missing = setlist.missing_songs || [];
+          const songs = setlist.songs || [];
+          const tagClass = setlist.setlist_type === 'fresh' ? 'fresh' : 'estimated';
+          const songList = songs.map((song) => {
+            const link = song.spotify_url ? `<a href="${song.spotify_url}" target="_blank" rel="noopener noreferrer">Open</a>` : '<span class="missing">Not found</span>';
+            return `<div class="song-row">
+              <span>${song.name}</span>
+              ${link}
+            </div>`;
+          }).join('');
+          const chips = [];
+          if (setlist.setlist_date) chips.push(`Date ${setlist.setlist_date}`);
+          if (setlist.last_setlist_age_days !== null && setlist.last_setlist_age_days !== undefined) {
+            chips.push(`${setlist.last_setlist_age_days} days old`);
+          }
+          if (missing.length > 0) {
+            chips.push(`<strong>${missing.length} missing</strong>`);
+          }
+          return `<div class="setlist-card">
+            <div class="setlist-header">
+              <h4>${setlist.band}</h4>
+              <span class="tag ${tagClass}">${setlist.setlist_type}</span>
+            </div>
+            ${songList}
+            <div class="chip-row">${chips.join(' · ')}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    };
+
     const showGuard = () => accessGuard.classList.remove('hidden');
     const hideGuard = () => accessGuard.classList.add('hidden');
     const hasToken = () => Boolean(tokenInput.value.trim());
+    const shouldRequireToken = () => Boolean(createPlaylistInput.checked);
+    const updateGuard = () => {
+      if (shouldRequireToken() && !hasToken()) {
+        showGuard();
+      } else {
+        hideGuard();
+      }
+    };
 
     const buildRequest = (endpoint, payload, authHeader) => {
       const autoDetectLocal = endpoint.includes('/2015-03-31/functions/function/invocations');
@@ -529,32 +696,34 @@
       } else if (storedToken) {
         tokenInput.value = storedToken;
       }
-      if (hasToken()) {
-        hideGuard();
-      } else {
-        showGuard();
-      }
+      updateGuard();
     };
 
     tokenInput.addEventListener('input', () => {
       const token = tokenInput.value.trim();
       if (token) {
         localStorage.setItem(TOKEN_STORAGE_KEY, token);
-        hideGuard();
-      } else {
-        showGuard();
       }
+      updateGuard();
     });
 
-    fillExampleButton.addEventListener('click', () => {
-      bandsInput.value = 'Band A\nBand B\nArtist C';
-      playlistInput.value = 'Rehearsal Mix';
-      copyThresholdInput.value = 10;
-      maxLengthInput.value = 12;
-      rateLimitInput.value = 0.5;
-      noCacheInput.checked = true;
+    if (fillExampleButton) {
+      fillExampleButton.addEventListener('click', () => {
+        bandsInput.value = 'Band A\nBand B\nArtist C';
+        playlistInput.value = 'Rehearsal Mix';
+        copyThresholdInput.value = 10;
+        maxLengthInput.value = 12;
+        rateLimitInput.value = 0.5;
+        noCacheInput.checked = true;
+        updatePreview();
+        setStatus('Example payload loaded');
+      });
+    }
+    createPlaylistInput.addEventListener('change', () => {
       updatePreview();
-      setStatus('Example payload loaded');
+      updateGuard();
+      setStatus(createPlaylistInput.checked ? 'Playlist creation enabled (token required)' : 'Preview mode (no token needed)');
+      updateSubmitLabel();
     });
 
     form.addEventListener('submit', async (event) => {
@@ -573,8 +742,18 @@
 
       setStatus('Sending request...');
       responsePreview.textContent = 'Waiting for response...';
+      setlistSummary.innerHTML = '<div class="chip-row"><span>Working...</span></div>';
+      submitButton.disabled = true;
+      const originalLabel = submitButton.textContent;
+      submitButton.textContent = 'Working...';
 
       const token = tokenInput.value.trim();
+      if (createPlaylistInput.checked && !token) {
+        setStatus('Token required when creating a Spotify playlist.', '#ff7c7c');
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel;
+        return;
+      }
       const authHeader = token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : '';
       const { headers, body } = buildRequest(endpoint, payload, authHeader);
 
@@ -611,18 +790,34 @@
 
         responsePreview.textContent = JSON.stringify(output, null, 2);
         const linkUrl = innerBody?.playlist?.url || parsedBody?.playlist?.url;
-        updateResponseLink(linkUrl);
+        const created = Boolean(innerBody?.created_playlist ?? parsedBody?.created_playlist);
+        updateResponseLink(linkUrl, created);
+        const summary = renderSetlistSummary(innerBody || parsedBody);
+        setlistSummary.innerHTML = summary || '<div class="chip-row"><span>No results yet.</span></div>';
         setStatus(response.ok ? 'Lambda responded successfully' : 'Lambda returned an error', response.ok ? 'var(--accent)' : '#ff7c7c');
       } catch (error) {
         responsePreview.textContent = `Request failed: ${error.message}`;
-        updateResponseLink(null);
+        updateResponseLink(null, false);
+        setlistSummary.innerHTML = '';
         setStatus('Network error', '#ff7c7c');
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel;
       }
     });
 
     // Initialize preview on load.
     updatePreview();
     applyTokenFromQuery();
+    updateGuard();
+    updateSubmitLabel();
+
+    // Auto-enable local mode when served from localhost to streamline `make run`.
+    const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    if (isLocalHost && !localModeInput.checked) {
+      localModeInput.checked = true;
+      localModeInput.dispatchEvent(new Event('change'));
+    }
   </script>
 </body>
 </html>

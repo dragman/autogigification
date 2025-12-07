@@ -19,7 +19,7 @@ load_dotenv()
 )
 def main(scope: str):
     """Obtain and print a Spotify refresh token using the configured credentials."""
-    cfg = load_app_config()
+    cfg = load_app_config(require_spotify_user=False)
     spotify_client = SpotifyClient(cfg.spotify, track_cache=create_null_cache())
     auth_manager = spotify_client.create_auth_manager(
         scope, show_dialog=True, open_browser=True
