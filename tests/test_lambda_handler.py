@@ -15,7 +15,7 @@ def load_lambda_handler(monkeypatch, tokens="valid-token"):
 
 def test_lambda_handler_requires_authorization_header(monkeypatch):
     lh = load_lambda_handler(monkeypatch)
-    event = {"headers": {}}
+    event = {"headers": {}, "body": json.dumps({"create_playlist": True})}
 
     resp = lh.lambda_handler(event, None)
 
@@ -25,7 +25,10 @@ def test_lambda_handler_requires_authorization_header(monkeypatch):
 
 def test_lambda_handler_rejects_invalid_token(monkeypatch):
     lh = load_lambda_handler(monkeypatch)
-    event = {"headers": {"Authorization": "Bearer wrong"}}
+    event = {
+        "headers": {"Authorization": "Bearer wrong"},
+        "body": json.dumps({"create_playlist": True}),
+    }
 
     resp = lh.lambda_handler(event, None)
 
@@ -78,6 +81,27 @@ def test_lambda_handler_success_path(monkeypatch):
     body = json.loads(resp["body"])
     assert body["ok"] is True
     assert body["payload"] == payload
+
+
+def test_lambda_handler_allows_preview_without_token(monkeypatch):
+    lh = load_lambda_handler(monkeypatch, tokens="")
+
+    def fake_main_logic(payload):
+        return {"playlist": None, "setlists": [{"band": "Band", "songs": []}]}
+
+    monkeypatch.setattr(lh, "main_logic", fake_main_logic)
+
+    payload = {"band_names": ["Band"], "playlist_name": "Playlist", "create_playlist": False}
+    event = {
+        "headers": {},
+        "body": json.dumps(payload),
+    }
+
+    resp = lh.lambda_handler(event, None)
+
+    assert resp["statusCode"] == 200
+    body = json.loads(resp["body"])
+    assert body["setlists"][0]["band"] == "Band"
 
 
 def test_lambda_handler_full_payload_example(monkeypatch):

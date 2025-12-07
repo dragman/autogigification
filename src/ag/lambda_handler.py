@@ -124,17 +124,21 @@ def lambda_handler(event, context):
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
     auth = headers.get("authorization", "")
 
-    if not auth.startswith("Bearer "):
-        return _unauthorized("missing_or_invalid_authorization_header")
-
-    token = auth.split(" ", 1)[1]
-    if token not in VALID_TOKENS:
-        return _unauthorized("invalid_token")
-
     try:
         payload = _parse_body(event)
     except json.JSONDecodeError:
         return _bad_request("invalid_json_body")
+
+    create_playlist = bool(payload.get("create_playlist", True))
+
+    if auth:
+        if not auth.startswith("Bearer "):
+            return _unauthorized("missing_or_invalid_authorization_header")
+        token = auth.split(" ", 1)[1]
+        if token not in VALID_TOKENS:
+            return _unauthorized("invalid_token")
+    elif create_playlist:
+        return _unauthorized("missing_or_invalid_authorization_header")
 
     try:
         result = main_logic(payload)
