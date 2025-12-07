@@ -10,8 +10,9 @@ ACCOUNT ?= 436682557138
 ECR_REPO ?= dragman/autogigification
 IMAGE ?= $(ECR_REPO):latest
 ECR_URI := $(ACCOUNT).dkr.ecr.$(REGION).amazonaws.com/$(ECR_REPO)
+TEST_MARKER ?= not integration
 
-.PHONY: help venv deps clean login build tag push
+.PHONY: help venv deps clean login build tag push test test-local
 
 help:
 	@echo "make venv          - create virtualenv"
@@ -20,6 +21,8 @@ help:
 	@echo "make docker-build  - build Lambda container image (local)"
 	@echo "make docker-push   - push image to ECR (tags latest)"
 	@echo "make run           - run the Lambda image locally on :9000"
+	@echo "make test          - run pytest with markers ($(TEST_MARKER))"
+	@echo "make test-local    - run pytest -m integration"
 
 $(VENV)/bin/activate:
 	$(PYTHON) -m venv $(VENV)
@@ -58,3 +61,9 @@ run: build
 	echo "Frontend server PID $$FRONTEND_PID (logs at /tmp/ag_frontend.log)"; \
 	echo "Open http://127.0.0.1:8000/ in your browser."; \
 	docker run --env-file .env -e ENABLE_CORS=1 -p 9000:8080 ${ECR_REPO}
+
+test:
+	. $(VENV)/bin/activate && pytest -q -m "$(TEST_MARKER)"
+
+test-local:
+	. $(VENV)/bin/activate && pytest -q -m "integration"
