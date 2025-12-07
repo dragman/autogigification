@@ -3,10 +3,9 @@ import logging
 import click
 from dotenv import load_dotenv
 
-from ag.setlist import (
-    DEFAULT_SPOTIFY_SCOPES,
-    create_spotify_auth_manager,
-)
+from ag.cache import create_null_cache
+from ag.clients.spotify import DEFAULT_SPOTIFY_SCOPES, SpotifyClient
+from ag.config import load_app_config
 
 load_dotenv()
 
@@ -20,7 +19,9 @@ load_dotenv()
 )
 def main(scope: str):
     """Obtain and print a Spotify refresh token using the configured credentials."""
-    auth_manager = create_spotify_auth_manager(
+    cfg = load_app_config()
+    spotify_client = SpotifyClient(cfg.spotify, track_cache=create_null_cache())
+    auth_manager = spotify_client.create_auth_manager(
         scope, show_dialog=True, open_browser=True
     )
     token_info = auth_manager.get_access_token(as_dict=True)

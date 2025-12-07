@@ -16,8 +16,11 @@ SPOTIFY_CLIENT_ID=<YOUR_CLIENT_ID>
 SPOTIFY_CLIENT_SECRET=<YOUR_CLIENT_SECRET>
 SPOTIFY_REDIRECT_URI=http://localhost:3000
 SPOTIFY_USERNAME=<YOUR_SPOTIFY_USERNAME>
+SPOTIFY_REFRESH_TOKEN=<YOUR_SPOTIFY_REFRESH_TOKEN>
 SETLIST_CACHE=setlist_cache.json
 SPOTIFY_TRACK_CACHE=spotify_cache.json
+# Optional: SPOTIFY_SCOPES="playlist-modify-public"
+# Optional: SPOTIFY_CACHE_PATH=/tmp/spotify_token_cache
 ```
 
 Now you can call the command itself.

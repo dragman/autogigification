@@ -124,5 +124,5 @@ def create_cache(cache_target: Optional[Union[str, Path]]) -> Cache:
 
 
 def create_null_cache() -> Cache:
-    # For legacy callers: return a non-persisted in-memory cache.
-    return MemoryCache()
+    # For legacy callers: return a no-op cache.
+    return NullCache()

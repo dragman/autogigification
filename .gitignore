@@ -137,3 +137,8 @@ venv.bak/
 # Pyright type checker
 .pyright/
 .DS_Store
+
+# Local caches/artifacts
+setlist_cache.json
+spotify_cache.json
+*.cache.json
