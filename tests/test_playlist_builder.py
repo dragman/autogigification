@@ -198,6 +198,35 @@ def test_collect_band_songs_respects_force_smart_false(monkeypatch):
     assert songs.setlist_type == "fresh"
 
 
+def test_collect_band_songs_treats_threshold_age_as_stale(monkeypatch):
+    builder = PlaylistBuilder(
+        DummySetlistClient({"Band": {"data": 1}}),
+        DummySpotifyClient(),
+    )
+    monkeypatch.setattr(
+        "ag.services.playlist_builder.extract_common_songs",
+        lambda setlists: [("song", pd.Timestamp.now() - pd.Timedelta(days=50))],
+    )
+    monkeypatch.setattr(
+        "ag.services.playlist_builder.extract_last_setlist",
+        lambda songs_by_date: (["song"], songs_by_date[0][1]),
+    )
+    monkeypatch.setattr(
+        "ag.services.playlist_builder.extract_smart_setlist",
+        lambda songs_by_date, max_len: ["smart"],
+    )
+
+    songs = builder._collect_band_songs(
+        "Band",
+        copy_last_setlist_threshold=50,
+        max_setlist_length=10,
+    )
+
+    assert songs
+    assert songs.songs == ["smart"]
+    assert songs.setlist_type == "estimated"
+
+
 def test_collect_band_songs_handles_future_date(monkeypatch):
     builder = PlaylistBuilder(
         DummySetlistClient({"Band": {"data": 1}}),

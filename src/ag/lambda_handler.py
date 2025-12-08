@@ -130,6 +130,22 @@ def lambda_handler(event, context):
         return _bad_request("invalid_json_body")
 
     create_playlist = bool(payload.get("create_playlist", True))
+    spotify_user_creds_present = all(
+        (
+            os.environ.get("SPOTIFY_REFRESH_TOKEN"),
+            os.environ.get("SPOTIFY_USERNAME"),
+            os.environ.get("SPOTIFY_REDIRECT_URI"),
+        )
+    )
+
+    # If we can't create a playlist anyway, downgrade to preview mode and don't require auth.
+    if create_playlist and not spotify_user_creds_present:
+        logging.info(
+            "Spotify user token missing, switching to preview-only mode for %s",
+            payload.get("playlist_name"),
+        )
+        create_playlist = False
+        payload["create_playlist"] = False
 
     if auth:
         if not auth.startswith("Bearer "):

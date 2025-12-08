@@ -597,7 +597,9 @@
           const songs = setlist.songs || [];
           const tagClass = setlist.setlist_type === 'fresh' ? 'fresh' : 'estimated';
           const songList = songs.map((song) => {
-            const link = song.spotify_url ? `<a href="${song.spotify_url}" target="_blank" rel="noopener noreferrer">Open</a>` : '<span class="missing">Not found</span>';
+            const link = song.spotify_url
+              ? `<a href="${song.spotify_url}" target="_blank" rel="noopener noreferrer">Spotify ↗</a>`
+              : '<span class="missing">Not found</span>';
             return `<div class="song-row">
               <span>${song.name}</span>
               ${link}

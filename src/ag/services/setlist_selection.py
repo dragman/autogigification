@@ -144,4 +144,4 @@ def extract_smart_setlist(
 
 
 def should_use_smart_setlist(last_setlist_age_days: int, threshold_days: int) -> bool:
-    return last_setlist_age_days > threshold_days
+    return last_setlist_age_days >= threshold_days

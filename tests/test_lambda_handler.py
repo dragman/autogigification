@@ -15,6 +15,9 @@ def load_lambda_handler(monkeypatch, tokens="valid-token"):
 
 def test_lambda_handler_requires_authorization_header(monkeypatch):
     lh = load_lambda_handler(monkeypatch)
+    monkeypatch.setenv("SPOTIFY_REFRESH_TOKEN", "token")
+    monkeypatch.setenv("SPOTIFY_USERNAME", "user")
+    monkeypatch.setenv("SPOTIFY_REDIRECT_URI", "http://callback")
     event = {"headers": {}, "body": json.dumps({"create_playlist": True})}
 
     resp = lh.lambda_handler(event, None)
@@ -25,6 +28,9 @@ def test_lambda_handler_requires_authorization_header(monkeypatch):
 
 def test_lambda_handler_rejects_invalid_token(monkeypatch):
     lh = load_lambda_handler(monkeypatch)
+    monkeypatch.setenv("SPOTIFY_REFRESH_TOKEN", "token")
+    monkeypatch.setenv("SPOTIFY_USERNAME", "user")
+    monkeypatch.setenv("SPOTIFY_REDIRECT_URI", "http://callback")
     event = {
         "headers": {"Authorization": "Bearer wrong"},
         "body": json.dumps({"create_playlist": True}),
@@ -94,6 +100,31 @@ def test_lambda_handler_allows_preview_without_token(monkeypatch):
     payload = {"band_names": ["Band"], "playlist_name": "Playlist", "create_playlist": False}
     event = {
         "headers": {},
+        "body": json.dumps(payload),
+    }
+
+    resp = lh.lambda_handler(event, None)
+
+    assert resp["statusCode"] == 200
+    body = json.loads(resp["body"])
+    assert body["setlists"][0]["band"] == "Band"
+
+
+def test_lambda_handler_downgrades_to_preview_when_tokens_missing(monkeypatch):
+    lh = load_lambda_handler(monkeypatch, tokens="valid-token")
+
+    def fake_main_logic(payload):
+        assert payload["create_playlist"] is False
+        return {"playlist": None, "setlists": [{"band": "Band", "songs": []}]}
+
+    monkeypatch.setattr(lh, "main_logic", fake_main_logic)
+    monkeypatch.delenv("SPOTIFY_REFRESH_TOKEN", raising=False)
+    monkeypatch.delenv("SPOTIFY_USERNAME", raising=False)
+    monkeypatch.delenv("SPOTIFY_REDIRECT_URI", raising=False)
+
+    payload = {"band_names": ["Band"], "playlist_name": "Playlist", "create_playlist": True}
+    event = {
+        "headers": {},  # No token provided
         "body": json.dumps(payload),
     }
 
