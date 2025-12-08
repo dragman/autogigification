@@ -2,6 +2,8 @@
 
 Generate spotify playlists from setlist.fm!
 
+Live demo on GitHub Pages: https://dragman.github.io/autogigification/static
+
 ## Motivation
 
 I've found myself frequently wanting to prepare for a show by listening to the likely setlist.
