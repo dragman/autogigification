@@ -73,10 +73,8 @@ class PlaylistBuilder:
         if raw_age_days < 0:
             use_smart = True
         else:
-            use_smart = (
-                force_smart_setlist
-                if force_smart_setlist is not None
-                else should_use_smart_setlist(last_setlist_age, copy_last_setlist_threshold)
+            use_smart = force_smart_setlist or should_use_smart_setlist(
+                last_setlist_age, copy_last_setlist_threshold
             )
 
         if use_smart:

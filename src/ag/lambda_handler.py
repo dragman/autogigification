@@ -17,6 +17,33 @@ logger.setLevel(logging.INFO)
 load_dotenv()
 
 ENABLE_CORS = os.environ.get("ENABLE_CORS", "").lower() in {"1", "true", "yes"}
+_DEBUGPY_INITIALIZED = False
+
+
+def _maybe_enable_debugpy() -> bool:
+    global _DEBUGPY_INITIALIZED
+    if _DEBUGPY_INITIALIZED:
+        return _DEBUGPY_INITIALIZED
+
+    if os.environ.get("ENABLE_DEBUGPY", "").lower() not in {"1", "true", "yes"}:
+        return _DEBUGPY_INITIALIZED
+
+    try:
+        import debugpy
+
+        host = os.environ.get("DEBUGPY_HOST", "0.0.0.0")
+        port = int(os.environ.get("DEBUGPY_PORT", "5678"))
+        debugpy.listen((host, port))
+        logger.info("debugpy listening on %s:%s", host, port)
+        _DEBUGPY_INITIALIZED = True
+    except Exception:
+        logger.exception("Failed to enable debugpy")
+
+    return _DEBUGPY_INITIALIZED
+
+
+_maybe_enable_debugpy()
+
 
 # Comma-separated list of allowed tokens
 # e.g. APP_TOKENS="dmoney_token_...,bro_token_..."
@@ -50,6 +77,7 @@ def _unauthorized(message="unauthorized"):
 def _bad_request(message="bad_request"):
     return _response(400, {"error": message})
 
+
 def _http_method(event: Dict[str, Any]) -> str:
     context = event.get("requestContext") or {}
     http_info = context.get("http") or {}
@@ -81,9 +109,7 @@ def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
     rate_limit = float(payload.get("rate_limit", 1.0))
     create_playlist = bool(payload.get("create_playlist", True))
     force_smart_setlist = payload.get("force_smart_setlist")
-    force_smart = (
-        bool(force_smart_setlist) if force_smart_setlist is not None else None
-    )
+    force_smart = bool(force_smart_setlist) if force_smart_setlist is not None else None
     use_fuzzy_search = bool(payload.get("use_fuzzy_search", False))
 
     spotify_user_creds_present = all(
@@ -117,6 +143,13 @@ def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def lambda_handler(event, context):
+    if _maybe_enable_debugpy():
+        logging.info("Handler file: %s", __file__)
+        logging.info("Handler cwd: %s", os.getcwd())
+        import debugpy
+
+        debugpy.breakpoint()
+
     method = _http_method(event)
     if method == "OPTIONS" and ENABLE_CORS:
         return _response(200, {"ok": True})
@@ -130,31 +163,15 @@ def lambda_handler(event, context):
         return _bad_request("invalid_json_body")
 
     create_playlist = bool(payload.get("create_playlist", True))
-    spotify_user_creds_present = all(
-        (
-            os.environ.get("SPOTIFY_REFRESH_TOKEN"),
-            os.environ.get("SPOTIFY_USERNAME"),
-            os.environ.get("SPOTIFY_REDIRECT_URI"),
-        )
+    has_valid_token = (
+        auth.startswith("Bearer ") and auth.split(" ", 1)[1] in VALID_TOKENS
     )
 
-    # If we can't create a playlist anyway, downgrade to preview mode and don't require auth.
-    if create_playlist and not spotify_user_creds_present:
-        logging.info(
-            "Spotify user token missing, switching to preview-only mode for %s",
-            payload.get("playlist_name"),
-        )
+    # Let's downgrade request if token is invalid but playlist creation is enabled.
+    if create_playlist and not has_valid_token:
+        logging.warning("Invalid token: %s", auth)
         create_playlist = False
         payload["create_playlist"] = False
-
-    if auth:
-        if not auth.startswith("Bearer "):
-            return _unauthorized("missing_or_invalid_authorization_header")
-        token = auth.split(" ", 1)[1]
-        if token not in VALID_TOKENS:
-            return _unauthorized("invalid_token")
-    elif create_playlist:
-        return _unauthorized("missing_or_invalid_authorization_header")
 
     try:
         result = main_logic(payload)

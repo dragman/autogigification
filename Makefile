@@ -11,13 +11,14 @@ ECR_REPO ?= dragman/autogigification
 ECR_URI := $(ACCOUNT).dkr.ecr.$(REGION).amazonaws.com/$(ECR_REPO)
 TEST_MARKER ?= not integration
 
-.PHONY: help venv deps clean login build test test-local
+.PHONY: help venv deps clean login build push run test test-local
 
 help:
 	@echo "make venv          - create virtualenv"
 	@echo "make deps          - install dependencies into venv"
 	@echo "make clean         - remove build artifacts"
-	@echo "make build         - build, load, and push image to ECR (tags latest)"
+	@echo "make build         - build and load the image locally (tags latest)"
+	@echo "make push          - push the latest image to ECR"
 	@echo "make run           - run the Lambda image locally on :9000"
 	@echo "make test          - run pytest with markers ($(TEST_MARKER))"
 	@echo "make test-local    - run pytest -m integration"
@@ -37,13 +38,15 @@ clean:
 login:
 	aws ecr get-login-password --region $(REGION) | docker login --username AWS --password-stdin $(ACCOUNT).dkr.ecr.$(REGION).amazonaws.com
 
-build: login
+build:
 	docker buildx build \
 	  --platform linux/amd64 \
 	  -t $(ECR_URI):latest \
-	  --push \
 	  --load \
 	  .
+
+push: login build
+	docker push $(ECR_URI):latest
 
 run: build
 	@set -e; \
@@ -57,7 +60,7 @@ run: build
 	echo "Proxy PID $$PROXY_PID (logs at /tmp/ag_cors_proxy.log)"; \
 	echo "Frontend server PID $$FRONTEND_PID (logs at /tmp/ag_frontend.log)"; \
 	echo "Open http://127.0.0.1:8000/ in your browser."; \
-	docker run --env-file .env -e ENABLE_CORS=1 -p 9000:8080 $(ECR_URI):latest
+	docker run --env-file .env -e ENABLE_CORS=1 -e ENABLE_DEBUGPY=1 -p 9000:8080 -p 5678:5678 $(ECR_URI):latest
 
 test:
 	. $(VENV)/bin/activate && pytest -q -m "$(TEST_MARKER)"
