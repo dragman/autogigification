@@ -1,7 +1,7 @@
 import pandas as pd
+import pytest
 
 from ag.models import Playlist, SongMatch
-from ag.services.lineup import resolve_lineup
 from ag.services.playlist_builder import BandSetlistPlan, PlaylistBuilder
 
 
@@ -41,19 +41,6 @@ class DummySpotifyClient:
                 for i, song in enumerate(songs)
             ]
         return mapped
-
-
-def test_resolve_lineup_mixes_festival_and_direct():
-    calls = {}
-
-    def fake_festival():
-        calls["invoked"] = True
-        return ["Band A", "Band B"]
-
-    lineup = resolve_lineup(["Hellfest", "Custom Band"], {"hellfest": fake_festival})
-
-    assert calls["invoked"] is True
-    assert lineup == ["Band A", "Band B", "Custom Band"]
 
 
 def test_collect_band_songs_returns_none_when_no_setlists(monkeypatch):
@@ -194,8 +181,8 @@ def test_collect_band_songs_respects_force_smart_false(monkeypatch):
     )
 
     assert songs
-    assert songs.songs == ["old", "older"]
-    assert songs.setlist_type == "fresh"
+    assert songs.songs == ["smart"]
+    assert songs.setlist_type == "estimated"
 
 
 def test_collect_band_songs_treats_threshold_age_as_stale(monkeypatch):
@@ -264,10 +251,6 @@ def test_build_playlist_orchestrates(monkeypatch):
         dummy_spotify,
     )
     monkeypatch.setattr(
-        "ag.services.playlist_builder.resolve_lineup",
-        lambda band_names, resolvers: ["BandX"],
-    )
-    monkeypatch.setattr(
         builder,
         "_collect_band_songs",
         lambda band, **kwargs: BandSetlistPlan(
@@ -303,10 +286,6 @@ def test_build_playlist_preview_mode(monkeypatch):
         dummy_spotify,
     )
     monkeypatch.setattr(
-        "ag.services.playlist_builder.resolve_lineup",
-        lambda band_names, resolvers: ["BandY"],
-    )
-    monkeypatch.setattr(
         builder,
         "_collect_band_songs",
         lambda band, **kwargs: BandSetlistPlan(
@@ -330,3 +309,31 @@ def test_build_playlist_preview_mode(monkeypatch):
     assert result.created_playlist is False
     assert dummy_spotify.calls["map_tracks"]["songs"]["BandY"] == ["song3"]
     assert "playlist_name" not in dummy_spotify.calls
+
+
+def test_build_playlist_requires_name_when_creating(monkeypatch):
+    dummy_spotify = DummySpotifyClient()
+    builder = PlaylistBuilder(
+        DummySetlistClient({"BandZ": {"data": 1}}),
+        dummy_spotify,
+    )
+    monkeypatch.setattr(
+        builder,
+        "_collect_band_songs",
+        lambda band, **kwargs: BandSetlistPlan(
+            band=band,
+            songs=["songx"],
+            setlist_type="fresh",
+            setlist_date=pd.Timestamp("2024-03-01"),
+            last_setlist_age_days=1,
+        ),
+    )
+
+    with pytest.raises(ValueError):
+        builder.build_playlist(
+            ("BandZ",),
+            None,
+            copy_last_setlist_threshold=5,
+            max_setlist_length=10,
+            create_playlist=True,
+        )

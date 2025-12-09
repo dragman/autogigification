@@ -94,10 +94,15 @@ def _parse_body(event: Dict[str, Any]) -> Dict[str, Any]:
 
 def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
     band_names = payload.get("band_names")
-    playlist_name = payload.get("playlist_name")
+    playlist_name_raw = payload.get("playlist_name")
+    playlist_name = (
+        playlist_name_raw.strip()
+        if isinstance(playlist_name_raw, str)
+        else playlist_name_raw
+    )
 
-    if not band_names or not playlist_name:
-        raise ValueError("band_names and playlist_name are required")
+    if not band_names:
+        raise ValueError("band_names are required")
 
     if isinstance(band_names, str):
         band_names = [band_names]
@@ -107,7 +112,7 @@ def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
     max_setlist_length = int(payload.get("max_setlist_length", 12))
     no_cache = bool(payload.get("no_cache", True))
     rate_limit = float(payload.get("rate_limit", 1.0))
-    create_playlist = bool(payload.get("create_playlist", True))
+    create_playlist = bool(payload.get("create_playlist", bool(playlist_name)))
     force_smart_setlist = payload.get("force_smart_setlist")
     force_smart = bool(force_smart_setlist) if force_smart_setlist is not None else None
     use_fuzzy_search = bool(payload.get("use_fuzzy_search", False))
@@ -126,6 +131,9 @@ def main_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
             playlist_name,
         )
         create_playlist = False
+
+    if create_playlist and not playlist_name:
+        raise ValueError("playlist_name is required when creating a playlist")
 
     result = run_playlist_job(
         band_tuple,

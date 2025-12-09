@@ -121,6 +121,11 @@
       background: rgba(255, 255, 255, 0.06);
     }
 
+    input:disabled, textarea:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     textarea {
       min-height: 120px;
       resize: vertical;
@@ -318,47 +323,9 @@
       color: var(--muted);
     }
 
-    .guard {
-      position: fixed;
-      inset: 0;
-      background: rgba(11, 16, 33, 0.9);
-      backdrop-filter: blur(6px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      padding: 24px;
-    }
-
-    .guard-card {
-      max-width: 400px;
-      width: 100%;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px;
-      text-align: center;
-      box-shadow: var(--shadow);
-    }
-
-    .guard .lock {
-      font-size: 36px;
-      margin-bottom: 8px;
-    }
-
-    .guard h2 {
-      margin: 0 0 8px;
-      letter-spacing: -0.02em;
-    }
-
-    .guard p {
-      margin: 0 0 16px;
+    .hint {
       color: var(--muted);
-      line-height: 1.5;
-    }
-
-    .hidden {
-      display: none !important;
+      font-size: 12px;
     }
 
     details.advanced {
@@ -397,15 +364,6 @@
   </style>
 </head>
 <body>
-  <div id="access-guard" class="guard hidden">
-    <div class="guard-card">
-      <div class="lock">🔒</div>
-      <h2>Access denied</h2>
-      <p>Provide a bearer token via link query (e.g., <code>?token=...</code>) or paste it in advanced settings to continue.</p>
-      <button type="button" id="guard-cta" class="secondary">I have a token</button>
-    </div>
-  </div>
-
   <header>
     <div class="badge">Setlist.fm -> Spotify</div>
     <div>
@@ -419,14 +377,15 @@
   <main>
     <section class="card">
       <form id="playlist-form">
-        <label>
-          <span class="field-title">Playlist name</span>
-          <input type="text" id="playlist_name" name="playlist_name" placeholder="Tour Warmup 2024" required />
-        </label>
-
         <label class="grid-span-2">
           <span class="field-title">Band names (comma or new line)</span>
           <textarea id="band_names" name="band_names" placeholder="Band A, Band B&#10;Artist C"></textarea>
+        </label>
+
+        <label>
+          <span class="field-title">Playlist name <span class="hint">(set to create, leave empty to preview)</span></span>
+          <input type="text" id="playlist_name" name="playlist_name" placeholder="Tour Warmup 2024" />
+          <span class="hint" id="playlist_hint"></span>
         </label>
 
         <details class="advanced">
@@ -448,17 +407,12 @@
             </div>
 
             <div class="toggles">
-              <input type="checkbox" id="create_playlist" name="create_playlist" />
-              <label for="create_playlist" style="margin: 0;">Create Spotify playlist (requires token)</label>
-            </div>
-
-            <div class="toggles">
               <input type="checkbox" id="force_smart_setlist" name="force_smart_setlist" />
               <label for="force_smart_setlist" style="margin: 0;">Force setlist estimation (even if fresh)</label>
             </div>
 
             <div class="toggles">
-              <input type="checkbox" id="use_fuzzy_search" name="use_fuzzy_search" />
+              <input type="checkbox" id="use_fuzzy_search" name="use_fuzzy_search" checked />
               <label for="use_fuzzy_search" style="margin: 0;">Fuzzy track name matching</label>
             </div>
 
@@ -527,10 +481,10 @@
 
     const bandsInput = document.getElementById('band_names');
     const playlistInput = document.getElementById('playlist_name');
+    const playlistHint = document.getElementById('playlist_hint');
     const copyThresholdInput = document.getElementById('copy_last_setlist_threshold');
     const maxLengthInput = document.getElementById('max_setlist_length');
     const noCacheInput = document.getElementById('no_cache');
-    const createPlaylistInput = document.getElementById('create_playlist');
     const forceSmartInput = document.getElementById('force_smart_setlist');
     const fuzzyInput = document.getElementById('use_fuzzy_search');
     const rateLimitInput = document.getElementById('rate_limit');
@@ -538,35 +492,50 @@
     const endpointInput = document.getElementById('endpoint');
     const fillExampleButton = document.getElementById('fill-example');
     const localModeInput = document.getElementById('local_mode');
-    const accessGuard = document.getElementById('access-guard');
-    const guardCta = document.getElementById('guard-cta');
-    const advancedDetails = document.querySelector('details.advanced');
     const TOKEN_STORAGE_KEY = 'ag_bearer_token';
     const LOCAL_INVOKE_URL = 'http://127.0.0.1:8787/2015-03-31/functions/function/invocations';
     let savedEndpointValue = endpointInput.value;
 
     const parseBands = (value) => value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
 
-    const buildPayload = () => ({
-      band_names: parseBands(bandsInput.value),
-      playlist_name: playlistInput.value.trim(),
-      copy_last_setlist_threshold: Number(copyThresholdInput.value) || 15,
-      max_setlist_length: Number(maxLengthInput.value) || 12,
-      no_cache: Boolean(noCacheInput.checked),
-      rate_limit: Number(rateLimitInput.value) || 1.0,
-      create_playlist: Boolean(createPlaylistInput.checked),
-      force_smart_setlist: Boolean(forceSmartInput.checked),
-      use_fuzzy_search: Boolean(fuzzyInput.checked),
-    });
+    const buildPayload = () => {
+      const playlistName = playlistInput.value.trim();
+      return {
+        band_names: parseBands(bandsInput.value),
+        playlist_name: playlistName || null,
+        copy_last_setlist_threshold: Number(copyThresholdInput.value) || 15,
+        max_setlist_length: Number(maxLengthInput.value) || 12,
+        no_cache: Boolean(noCacheInput.checked),
+        rate_limit: Number(rateLimitInput.value) || 1.0,
+        create_playlist: Boolean(playlistName),
+        force_smart_setlist: Boolean(forceSmartInput.checked),
+        use_fuzzy_search: Boolean(fuzzyInput.checked),
+      };
+    };
 
     const updatePreview = () => {
       payloadPreview.textContent = JSON.stringify(buildPayload(), null, 2);
     };
 
     const updateSubmitLabel = () => {
-      submitButton.textContent = createPlaylistInput.checked
+      const playlistName = playlistInput.value.trim();
+      submitButton.textContent = playlistName
         ? 'Create Spotify Playlist'
         : 'Preview setlists + links';
+    };
+
+    const hasToken = () => Boolean(tokenInput.value.trim());
+    const wantsPlaylistCreation = () => Boolean(playlistInput.value.trim());
+
+    const updatePlaylistNameState = () => {
+      const tokenPresent = hasToken();
+      const creationEnabled = wantsPlaylistCreation();
+      playlistInput.required = creationEnabled && tokenPresent;
+      playlistHint.textContent = tokenPresent
+        ? creationEnabled
+          ? 'Playlist will be created'
+          : 'Leave empty to preview only'
+        : 'Add a bearer token to enable playlist creation';
     };
 
     const setStatus = (text, color = 'var(--accent)') => {
@@ -625,18 +594,6 @@
       </div>`;
     };
 
-    const showGuard = () => accessGuard.classList.remove('hidden');
-    const hideGuard = () => accessGuard.classList.add('hidden');
-    const hasToken = () => Boolean(tokenInput.value.trim());
-    const shouldRequireToken = () => Boolean(createPlaylistInput.checked);
-    const updateGuard = () => {
-      if (shouldRequireToken() && !hasToken()) {
-        showGuard();
-      } else {
-        hideGuard();
-      }
-    };
-
     const buildRequest = (endpoint, payload, authHeader) => {
       const autoDetectLocal = endpoint.includes('/2015-03-31/functions/function/invocations');
       const isLocalInvoke = localModeInput.checked || autoDetectLocal;
@@ -662,7 +619,11 @@
       return { headers, body: JSON.stringify(payload) };
     };
 
-    form.addEventListener('input', updatePreview);
+    form.addEventListener('input', () => {
+      updatePreview();
+      updateSubmitLabel();
+      updatePlaylistNameState();
+    });
     localModeInput.addEventListener('change', () => {
       if (localModeInput.checked) {
         savedEndpointValue = endpointInput.value;
@@ -673,13 +634,6 @@
         setStatus('Local mode off');
       }
     });
-    guardCta.addEventListener('click', () => {
-      advancedDetails.open = true;
-      hideGuard();
-      tokenInput.focus();
-      setStatus('Paste your bearer token in Advanced options');
-    });
-
     const applyTokenFromQuery = () => {
       const url = new URL(window.location.href);
       const queryToken = url.searchParams.get('token') || url.searchParams.get('bearer');
@@ -698,7 +652,7 @@
       } else if (storedToken) {
         tokenInput.value = storedToken;
       }
-      updateGuard();
+      updatePlaylistNameState();
     };
 
     tokenInput.addEventListener('input', () => {
@@ -706,7 +660,7 @@
       if (token) {
         localStorage.setItem(TOKEN_STORAGE_KEY, token);
       }
-      updateGuard();
+      updatePlaylistNameState();
     });
 
     if (fillExampleButton) {
@@ -718,21 +672,16 @@
         rateLimitInput.value = 0.5;
         noCacheInput.checked = true;
         updatePreview();
+        updateSubmitLabel();
         setStatus('Example payload loaded');
       });
     }
-    createPlaylistInput.addEventListener('change', () => {
-      updatePreview();
-      updateGuard();
-      setStatus(createPlaylistInput.checked ? 'Playlist creation enabled (token required)' : 'Preview mode (no token needed)');
-      updateSubmitLabel();
-    });
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const payload = buildPayload();
-      if (!payload.playlist_name || payload.band_names.length === 0) {
-        setStatus('Playlist name and at least one band are required.', 'salmon');
+      if (payload.band_names.length === 0) {
+        setStatus('At least one band is required.', 'salmon');
         return;
       }
 
@@ -750,8 +699,9 @@
       submitButton.textContent = 'Working...';
 
       const token = tokenInput.value.trim();
-      if (createPlaylistInput.checked && !token) {
-        setStatus('Token required when creating a Spotify playlist.', '#ff7c7c');
+      const wantsCreation = Boolean(payload.playlist_name);
+      if (wantsCreation && !token) {
+        setStatus('Add a bearer token to create the playlist, or clear the playlist name to preview.', '#ff7c7c');
         submitButton.disabled = false;
         submitButton.textContent = originalLabel;
         return;
@@ -809,9 +759,9 @@
     });
 
     // Initialize preview on load.
+    updatePlaylistNameState();
     updatePreview();
     applyTokenFromQuery();
-    updateGuard();
     updateSubmitLabel();
 
     // Auto-enable local mode when served from localhost to streamline `make run`.

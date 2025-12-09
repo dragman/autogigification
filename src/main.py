@@ -17,7 +17,10 @@ load_dotenv()
 
 @click.command()
 @click.option("--band-names", "-b", multiple=True)
-@click.option("--playlist-name")
+@click.option(
+    "--playlist-name",
+    help="Required if creating a playlist. Optional in preview mode.",
+)
 @click.option(
     "--copy-last-setlist-threshold",
     default=15,
@@ -63,8 +66,9 @@ def main(
     no_playlist: bool,
     force_smart_setlist: bool,
 ):
-    """Create a Spotify playlist based on the Hellfest lineup."""
+    """Create or preview a Spotify playlist from recent setlists."""
 
+    playlist_name = playlist_name.strip() if playlist_name else None
     force_smart = True if force_smart_setlist else None
     spotify_user_creds_present = all(
         (
@@ -79,10 +83,16 @@ def main(
         logging.info(
             "Spotify user token missing, running in preview-only mode (no playlist creation)."
         )
+
+    if not band_names:
+        raise click.UsageError("At least one band name is required.")
+
+    if create_playlist and not playlist_name:
+        raise click.UsageError("Playlist name is required when creating a playlist.")
     try:
         result = run_playlist_job(
             band_names,
-            playlist_name,
+            playlist_name if playlist_name else None,
             copy_last_setlist_threshold,
             max_setlist_length,
             no_cache=no_cache,

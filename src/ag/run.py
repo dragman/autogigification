@@ -38,7 +38,7 @@ def _build_builder(
 
 def run_playlist_job(
     band_names: Tuple[str, ...],
-    playlist_name: str,
+    playlist_name: Optional[str],
     copy_last_setlist_threshold: int,
     max_setlist_length: int,
     *,

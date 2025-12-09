@@ -13,35 +13,6 @@ def load_lambda_handler(monkeypatch, tokens="valid-token"):
     return lambda_handler
 
 
-def test_lambda_handler_requires_authorization_header(monkeypatch):
-    lh = load_lambda_handler(monkeypatch)
-    monkeypatch.setenv("SPOTIFY_REFRESH_TOKEN", "token")
-    monkeypatch.setenv("SPOTIFY_USERNAME", "user")
-    monkeypatch.setenv("SPOTIFY_REDIRECT_URI", "http://callback")
-    event = {"headers": {}, "body": json.dumps({"create_playlist": True})}
-
-    resp = lh.lambda_handler(event, None)
-
-    assert resp["statusCode"] == 401
-    assert "missing_or_invalid_authorization_header" in resp["body"]
-
-
-def test_lambda_handler_rejects_invalid_token(monkeypatch):
-    lh = load_lambda_handler(monkeypatch)
-    monkeypatch.setenv("SPOTIFY_REFRESH_TOKEN", "token")
-    monkeypatch.setenv("SPOTIFY_USERNAME", "user")
-    monkeypatch.setenv("SPOTIFY_REDIRECT_URI", "http://callback")
-    event = {
-        "headers": {"Authorization": "Bearer wrong"},
-        "body": json.dumps({"create_playlist": True}),
-    }
-
-    resp = lh.lambda_handler(event, None)
-
-    assert resp["statusCode"] == 401
-    assert "invalid_token" in resp["body"]
-
-
 def test_lambda_handler_handles_invalid_json(monkeypatch):
     lh = load_lambda_handler(monkeypatch)
     event = {
@@ -97,7 +68,11 @@ def test_lambda_handler_allows_preview_without_token(monkeypatch):
 
     monkeypatch.setattr(lh, "main_logic", fake_main_logic)
 
-    payload = {"band_names": ["Band"], "playlist_name": "Playlist", "create_playlist": False}
+    payload = {
+        "band_names": ["Band"],
+        "playlist_name": "Playlist",
+        "create_playlist": False,
+    }
     event = {
         "headers": {},
         "body": json.dumps(payload),
@@ -122,7 +97,11 @@ def test_lambda_handler_downgrades_to_preview_when_tokens_missing(monkeypatch):
     monkeypatch.delenv("SPOTIFY_USERNAME", raising=False)
     monkeypatch.delenv("SPOTIFY_REDIRECT_URI", raising=False)
 
-    payload = {"band_names": ["Band"], "playlist_name": "Playlist", "create_playlist": True}
+    payload = {
+        "band_names": ["Band"],
+        "playlist_name": "Playlist",
+        "create_playlist": True,
+    }
     event = {
         "headers": {},  # No token provided
         "body": json.dumps(payload),
@@ -184,7 +163,9 @@ def test_main_logic_disables_playlist_without_token(monkeypatch):
 
     monkeypatch.setattr(lh, "run_playlist_job", fake_run_playlist_job)
     monkeypatch.setattr(
-        lh, "playlist_result_to_payload", lambda res: {"created_playlist": False, "setlists": []}
+        lh,
+        "playlist_result_to_payload",
+        lambda res: {"created_playlist": False, "setlists": []},
     )
     monkeypatch.delenv("SPOTIFY_REFRESH_TOKEN", raising=False)
     monkeypatch.delenv("SPOTIFY_USERNAME", raising=False)

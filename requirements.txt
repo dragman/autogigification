@@ -1,7 +1,5 @@
 appnope==0.1.4
 asttokens==2.4.1
-beautifulsoup4==4.12.3
-bs4==0.0.2
 certifi==2024.8.30
 charset-normalizer==3.4.0
 click==8.1.7
@@ -38,7 +36,6 @@ pyzmq==26.2.0
 redis==5.2.0
 requests==2.32.3
 six==1.16.0
-soupsieve==2.6
 spotipy==2.24.0
 stack-data==0.6.3
 tornado==6.4.1

@@ -7,7 +7,6 @@ import pandas as pd
 from ag.clients.setlist_fm import SetlistFmClient
 from ag.clients.spotify import SpotifyClient
 from ag.models import Playlist, PlaylistBuildResult, SetlistResult
-from ag.services.lineup import DEFAULT_FESTIVAL_RESOLVERS, resolve_lineup
 from ag.services.setlist_selection import (
     extract_common_songs,
     extract_last_setlist,
@@ -32,12 +31,9 @@ class PlaylistBuilder:
         self,
         setlist_client: SetlistFmClient,
         spotify_client: SpotifyClient,
-        *,
-        festival_resolvers=None,
     ):
         self.setlist_client = setlist_client
         self.spotify_client = spotify_client
-        self.festival_resolvers = festival_resolvers or DEFAULT_FESTIVAL_RESOLVERS
 
     def _collect_band_songs(
         self,
@@ -69,11 +65,12 @@ class PlaylistBuilder:
         else:
             last_setlist_age = raw_age_days
 
-        use_smart = False
-        if raw_age_days < 0:
+        if force_smart_setlist is True:
+            use_smart = True
+        elif raw_age_days < 0:
             use_smart = True
         else:
-            use_smart = force_smart_setlist or should_use_smart_setlist(
+            use_smart = should_use_smart_setlist(
                 last_setlist_age, copy_last_setlist_threshold
             )
 
@@ -106,7 +103,7 @@ class PlaylistBuilder:
     def build_playlist(
         self,
         band_names: Iterable[str],
-        playlist_name: str,
+        playlist_name: Optional[str],
         copy_last_setlist_threshold: int,
         max_setlist_length: int,
         *,
@@ -114,7 +111,10 @@ class PlaylistBuilder:
         use_fuzzy_search: bool = False,
         create_playlist: bool = True,
     ) -> PlaylistBuildResult:
-        lineup = resolve_lineup(band_names, self.festival_resolvers)
+        if create_playlist and not playlist_name:
+            raise ValueError("playlist_name is required when creating a playlist")
+
+        lineup = list(band_names)
         logging.info("Bands in lineup: %s", ", ".join(lineup))
 
         setlist_plans: List[BandSetlistPlan] = []
