@@ -530,6 +530,7 @@
     const updatePlaylistNameState = () => {
       const tokenPresent = hasToken();
       const creationEnabled = wantsPlaylistCreation();
+      playlistInput.disabled = !tokenPresent;
       playlistInput.required = creationEnabled && tokenPresent;
       playlistHint.textContent = tokenPresent
         ? creationEnabled
